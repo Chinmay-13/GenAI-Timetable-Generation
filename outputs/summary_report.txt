@@ -1,0 +1,31 @@
+TIMETABLE SUMMARY REPORT
+========================
+Total sections scheduled: 12
+Total theory slots placed: 240
+Total lab slots placed: 72 (12 pairs x 3 periods x 2 sections = 72)
+Soft constraint violations:
+  same_subject_same_day: 0
+  back_to_back_same_subject: 0
+
+Faculty Load Table
+faculty_id | name | total_hours | max_hours | status
+F01 | Prof. Aryan Sharma | 12 | 12 | OK
+F02 | Prof. Meera Iyer | 12 | 12 | OK
+F03 | Prof. Suresh Nair | 12 | 12 | OK
+F04 | Prof. Kavya Reddy | 15 | 16 | OK
+F05 | Prof. Rajan Pillai | 11 | 16 | OK
+F06 | Prof. Divya Menon | 15 | 16 | OK
+F07 | Prof. Kiran Bhat | 11 | 16 | OK
+F08 | Prof. Ananya Das | 15 | 16 | OK
+F09 | Prof. Siddharth Rao | 11 | 16 | OK
+F10 | Prof. Preethi Joshi | 15 | 16 | OK
+F11 | Prof. Vikram Hegde | 11 | 20 | OK
+F12 | Prof. Sneha Kulkarni | 19 | 20 | OK
+F13 | Prof. Arun Krishnan | 11 | 20 | OK
+F14 | Prof. Deepa Verma | 19 | 20 | OK
+F15 | Prof. Rohit Shenoy | 11 | 20 | OK
+F16 | Prof. Lakshmi Prasad | 16 | 20 | OK
+F17 | Prof. Nandini Gowda | 16 | 20 | OK
+F18 | Prof. Tejas Murthy | 16 | 20 | OK
+F19 | Prof. Pooja Srinivas | 16 | 20 | OK
+F20 | Prof. Harsha Rao | 12 | 20 | OK

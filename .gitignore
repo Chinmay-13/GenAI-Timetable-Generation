@@ -13,8 +13,7 @@ __pycache__/
 *.pyo
 .pytest_cache/
 
-# Generated outputs (too large for git)
-outputs/
+# Generated logs
 logs/
 
 # OS files
