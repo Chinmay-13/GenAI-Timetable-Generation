@@ -1,4 +1,4 @@
-# GenAI Timetable Generation
+# GenAI-Timetable-Generation
 
 This project generates a weekly timetable for the CSE department, 3rd semester, across 12 sections using a phased pipeline. It combines rule validation, fixed lab allocation, OR-Tools based theory scheduling, CSV export, and an optional Gemini-powered explainer for generated results.
 
