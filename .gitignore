@@ -1,0 +1,22 @@
+# API keys and secrets
+.env
+.env.*
+!.env.example
+
+# Python virtual environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Generated outputs (too large for git)
+outputs/
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db

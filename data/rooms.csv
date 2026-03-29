@@ -1,0 +1,13 @@
+room_id,room_name,floor,room_type,capacity
+R01,Ground floor seminar hall,0,LAB,60
+R02,2nd floor seminar hall,2,LAB,60
+R03,6th floor seminar hall,6,LAB,60
+R04,7th floor seminar hall,7,LAB,60
+R05,9th floor seminar hall,9,LAB,60
+R06,11th floor seminar hall,11,LAB,60
+R07,G06,0,CLASSROOM,70
+R08,G07,0,CLASSROOM,70
+R09,G08,0,CLASSROOM,70
+R10,G09,0,CLASSROOM,70
+R11,101,1,CLASSROOM,70
+R12,102,1,CLASSROOM,70
