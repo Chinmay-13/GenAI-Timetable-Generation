@@ -69,7 +69,9 @@ def solve_theory(
         section_grid, faculty_grid, room_grid, lab_details = lock_labs(data_dir=data_dir)
 
     course_codes = courses_df["course_code"].tolist()
-    theory_hours = dict(zip(courses_df["course_code"], courses_df["theory_hours"]))
+    # Override weekly theory load in-code so the scheduler can run with
+    # 6 theory slots per course without requiring changes to the CSV generator.
+    theory_hours = {course_code: 6 for course_code in courses_df["course_code"].tolist()}
     faculty_ids = faculty_df["faculty_id"].tolist()
 
     section_lab_days = {section: set() for section in SECTIONS}
@@ -178,8 +180,8 @@ def solve_theory(
                 dcount
                 == sum(is_used[(section, day, period)] for period in range(1, 7))
             )
-            # Hard daily distribution: exactly 4 theory slots per day in P1-P6.
-            model.Add(dcount == 4)
+            # Hard daily distribution: exactly 6 theory slots per day in P1-P6.
+            model.Add(dcount == 6)
             daily_count[(section, day)] = dcount
 
             # Gap penalties in P1-P6:
@@ -297,7 +299,7 @@ def solve_theory(
     for section in SECTIONS:
         for day in DAYS:
             soft_counts["daily_load_imbalance"] += abs(
-                solver.Value(daily_count[(section, day)]) - 4
+                solver.Value(daily_count[(section, day)]) - 6
             )
             for p2 in range(2, 6):
                 if solver.Value(gap_var[(section, day, p2)]) == 1:
