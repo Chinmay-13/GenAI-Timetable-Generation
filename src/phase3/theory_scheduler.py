@@ -1,5 +1,9 @@
+from itertools import combinations
 from pathlib import Path
 import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 from ortools.sat.python import cp_model
 import pandas as pd
@@ -29,6 +33,11 @@ def _is_lab_token(value):
     return isinstance(value, str) and value.endswith("_LAB")
 
 
+def _initials(name):
+    tokens = [t.strip(".") for t in str(name).split() if t and t.lower() != "prof."]
+    return "".join(t[0].upper() for t in tokens[:3]) if tokens else "NA"
+
+
 def _print_section_grid(section_grid, section="A"):
     print(f"\nSection {section} timetable:\n")
     header = ["Day", "P1", "P2", "P3", "P4", "P5", "P6", "LUNCH", "P7", "P8", "P9"]
@@ -52,6 +61,129 @@ def _print_section_grid(section_grid, section="A"):
         print(" | ".join(row))
 
 
+def _faculty_course_sections(assignment_map):
+    grouped = {}
+    for course, section_map in assignment_map.items():
+        by_faculty = {}
+        for section, faculty_id in section_map.items():
+            by_faculty.setdefault(faculty_id, []).append(section)
+        for faculty_id, sections in by_faculty.items():
+            if len(sections) < 2:
+                continue
+            grouped.setdefault(faculty_id, {})[course] = sorted(sections)
+    return grouped
+
+
+def _print_same_day_consecutive_analysis(section_grid, assignment_map, faculty_df):
+    faculty_name = dict(zip(faculty_df["faculty_id"], faculty_df["name"]))
+    faculty_initials = {
+        faculty_id: _initials(name) for faculty_id, name in faculty_name.items()
+    }
+
+    grouped = _faculty_course_sections(assignment_map)
+    entries_by_day = {day: [] for day in DAYS}
+    total_pairs = 0
+    consecutive_pairs = 0
+
+    for faculty_id in sorted(grouped):
+        for course in sorted(grouped[faculty_id]):
+            sections = grouped[faculty_id][course]
+            course_short = SHORT_NAMES.get(course, course)
+            faculty_tag = faculty_initials.get(faculty_id, faculty_id)
+
+            for section_a, section_b in combinations(sections, 2):
+                for day in DAYS:
+                    periods_a = [
+                        period
+                        for period in PERIODS
+                        if section_grid[section_a][day][period] == course
+                    ]
+                    periods_b = [
+                        period
+                        for period in PERIODS
+                        if section_grid[section_b][day][period] == course
+                    ]
+                    if not periods_a or not periods_b:
+                        continue
+
+                    period_a, period_b = min(
+                        ((pa, pb) for pa in periods_a for pb in periods_b),
+                        key=lambda pair: (abs(pair[0] - pair[1]), min(pair), max(pair)),
+                    )
+                    is_consecutive = abs(period_a - period_b) == 1
+                    total_pairs += 1
+                    if is_consecutive:
+                        consecutive_pairs += 1
+                    entries_by_day[day].append(
+                        {
+                            "course": course_short,
+                            "faculty": faculty_tag,
+                            "section_a": section_a,
+                            "period_a": period_a,
+                            "section_b": section_b,
+                            "period_b": period_b,
+                            "is_consecutive": is_consecutive,
+                        }
+                    )
+
+    print("\n" + "═" * 50)
+    print("SAME-DAY CONSECUTIVE ANALYSIS")
+    print("═" * 50)
+    print("Checking all days where same faculty teaches")
+    print("same course twice on same day...")
+
+    for day in DAYS:
+        day_entries = entries_by_day[day]
+        if not day_entries:
+            continue
+
+        day_entries.sort(
+            key=lambda item: (
+                item["course"],
+                item["faculty"],
+                min(item["period_a"], item["period_b"]),
+                max(item["period_a"], item["period_b"]),
+                item["section_a"],
+                item["section_b"],
+            )
+        )
+
+        print(f"\nDay: {day}")
+        current_group = None
+        for item in day_entries:
+            group = (item["course"], item["faculty"])
+            if group != current_group:
+                print(f"  {item['course']} - Faculty {item['faculty']}:")
+                current_group = group
+            label = "CONSECUTIVE ✓" if item["is_consecutive"] else "GAP (not consecutive)"
+            print(
+                f"    Section {item['section_a']}: P{item['period_a']}  "
+                f"Section {item['section_b']}: P{item['period_b']}  -> {label}"
+            )
+
+    non_consecutive_pairs = total_pairs - consecutive_pairs
+    percentage = (100.0 * consecutive_pairs / total_pairs) if total_pairs else 0.0
+    print("\nSummary:")
+    print(f"  Total same-faculty same-day pairs : {total_pairs}")
+    print(f"  Consecutive                       : {consecutive_pairs} ({percentage:.1f}%)")
+    print(f"  Non-consecutive (gap)             : {non_consecutive_pairs}")
+    print("═" * 50)
+
+    return {
+        "total_pairs": total_pairs,
+        "consecutive_pairs": consecutive_pairs,
+        "non_consecutive_pairs": non_consecutive_pairs,
+        "percentage": percentage,
+    }
+
+
+def _build_solver(max_time_seconds, workers):
+    solver = cp_model.CpSolver()
+    solver.parameters.max_time_in_seconds = max_time_seconds
+    solver.parameters.num_search_workers = workers
+    return solver
+
+
 def solve_theory(
     assignment_map=None,
     section_grid=None,
@@ -69,10 +201,9 @@ def solve_theory(
         section_grid, faculty_grid, room_grid, lab_details = lock_labs(data_dir=data_dir)
 
     course_codes = courses_df["course_code"].tolist()
-    # Override weekly theory load in-code so the scheduler can run with
-    # 6 theory slots per course without requiring changes to the CSV generator.
     theory_hours = {course_code: 6 for course_code in courses_df["course_code"].tolist()}
     faculty_ids = faculty_df["faculty_id"].tolist()
+    faculty_course_sections = _faculty_course_sections(assignment_map)
 
     section_lab_days = {section: set() for section in SECTIONS}
     for detail in lab_details:
@@ -135,6 +266,7 @@ def solve_theory(
                         model.Add(sum(vars_for_faculty) <= 1)
 
     penalty_terms = []
+    reward_terms = []
     soft_counts = {
         "same_subject_same_day": 0,
         "back_to_back_same_subject": 0,
@@ -143,10 +275,7 @@ def solve_theory(
         "daily_load_imbalance": 0,
     }
 
-    # is_used[(section, day, period)] for P1-P6 only: whether section has any theory class in that slot.
     is_used = {}
-    has_before = {}
-    has_after = {}
     gap_var = {}
     daily_count = {}
 
@@ -167,8 +296,6 @@ def solve_theory(
                 else:
                     model.Add(used == 0)
 
-            # Enforce prefix usage in P1-P6: if a later period is used, all earlier periods are used.
-            # This removes both leading gaps and intra-day holes in the morning block.
             for period in range(1, 6):
                 model.Add(
                     is_used[(section, day, period)]
@@ -180,18 +307,13 @@ def solve_theory(
                 dcount
                 == sum(is_used[(section, day, period)] for period in range(1, 7))
             )
-            # Hard daily distribution: exactly 6 theory slots per day in P1-P6.
             model.Add(dcount == 6)
             daily_count[(section, day)] = dcount
 
-            # Gap penalties in P1-P6:
-            # gap at P2..P5 if no class at P but there is at least one before and one after.
             for p2 in range(2, 6):
                 hb = model.NewBoolVar(f"has_before_{section}_{day}_{p2}")
                 ha = model.NewBoolVar(f"has_after_{section}_{day}_{p2}")
                 gv = model.NewBoolVar(f"gap_{section}_{day}_{p2}")
-                has_before[(section, day, p2)] = hb
-                has_after[(section, day, p2)] = ha
                 gap_var[(section, day, p2)] = gv
 
                 before_vars = [is_used[(section, day, p)] for p in range(1, p2)]
@@ -202,7 +324,6 @@ def solve_theory(
                 model.Add(sum(after_vars) >= ha)
                 model.Add(sum(after_vars) <= len(after_vars) * ha)
 
-                # gv = hb AND (not is_used[p2]) AND ha
                 model.Add(gv <= hb)
                 model.Add(gv <= ha)
                 model.Add(gv <= 1 - is_used[(section, day, p2)])
@@ -233,7 +354,39 @@ def solve_theory(
                         model.Add(adj >= x[k1] + x[k2] - 1)
                         penalty_terms.append(adj * 5)
 
-    # Morning preference: on non-lab days, strongly discourage theory in P7-P9.
+    for faculty_id, course_map in faculty_course_sections.items():
+        for course, sections in course_map.items():
+            for section_i, section_j in combinations(sections, 2):
+                for day in DAYS:
+                    day_reward_vars = []
+                    for period in range(1, 6):
+                        key_i = (section_i, course, day, period)
+                        key_j_next = (section_j, course, day, period + 1)
+                        if key_i in x and key_j_next in x:
+                            consec = model.NewBoolVar(
+                                f"consec_{faculty_id}_{course}_{section_i}_{section_j}_{day}_{period}"
+                            )
+                            model.Add(consec <= x[key_i])
+                            model.Add(consec <= x[key_j_next])
+                            model.Add(consec >= x[key_i] + x[key_j_next] - 1)
+                            reward_terms.append(consec)
+                            day_reward_vars.append(consec)
+
+                        key_j = (section_j, course, day, period)
+                        key_i_next = (section_i, course, day, period + 1)
+                        if key_j in x and key_i_next in x:
+                            consec_rev = model.NewBoolVar(
+                                f"consec_rev_{faculty_id}_{course}_{section_i}_{section_j}_{day}_{period}"
+                            )
+                            model.Add(consec_rev <= x[key_j])
+                            model.Add(consec_rev <= x[key_i_next])
+                            model.Add(consec_rev >= x[key_j] + x[key_i_next] - 1)
+                            reward_terms.append(consec_rev)
+                            day_reward_vars.append(consec_rev)
+
+                    if day_reward_vars:
+                        model.Add(sum(day_reward_vars) <= 1)
+
     for section in SECTIONS:
         for day in DAYS:
             if day in section_lab_days[section]:
@@ -244,25 +397,38 @@ def solve_theory(
                     if key in x:
                         penalty_terms.append(x[key] * 50)
 
-    model.Minimize(sum(penalty_terms) if penalty_terms else 0)
+    penalty_expr = sum(penalty_terms) if penalty_terms else 0
+    reward_expr = sum(reward_terms) if reward_terms else 0
 
-    solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = 30
-    solver.parameters.num_search_workers = 8
+    model.Minimize(penalty_expr)
+    penalty_solver = _build_solver(max_time_seconds=120, workers=8)
+    penalty_status = penalty_solver.Solve(model)
+    penalty_status_name = penalty_solver.StatusName(penalty_status)
 
-    status = solver.Solve(model)
-    status_name = solver.StatusName(status)
+    if penalty_status != cp_model.OPTIMAL:
+        print("PHASE 3 FAILED - penalty stage did not reach OPTIMAL")
+        print(f"Penalty stage status: {penalty_status_name}")
+        raise ValueError("Phase 3 penalty optimization not optimal")
 
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        print("PHASE 3 FAILED - solver returned INFEASIBLE")
-        print("Likely causes:")
-        print("  1) Faculty overlap constraints too tight for available free slots")
-        print("  2) Section theory-hour requirements exceed free capacity after lab locks")
-        print("  3) Assignment distribution creates unavoidable conflicts on some days")
-        raise ValueError("Phase 3 infeasible")
+    best_penalty = int(round(penalty_solver.ObjectiveValue()))
+    model.Add(penalty_expr == best_penalty)
+    for key in x:
+        model.AddHint(x[key], penalty_solver.Value(x[key]))
+    model.Maximize(reward_expr)
+
+    reward_solver = _build_solver(max_time_seconds=60, workers=8)
+    reward_status = reward_solver.Solve(model)
+    reward_status_name = reward_solver.StatusName(reward_status)
+
+    if reward_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        final_solver = reward_solver
+    else:
+        final_solver = penalty_solver
+
+    status_name = penalty_status_name
 
     for (section, course, day, period), var in x.items():
-        if solver.Value(var) == 1:
+        if final_solver.Value(var) == 1:
             section_grid[section][day][period] = course
             faculty_id = assignment_map[course][section]
             if faculty_grid[faculty_id][day][period] is not None:
@@ -273,16 +439,14 @@ def solve_theory(
 
     for section in SECTIONS:
         for course in course_codes:
-            day_counts = []
             for day in DAYS:
-                c = sum(
+                count_for_day = sum(
                     1
                     for period in PERIODS
                     if section_grid[section][day][period] == course
                 )
-                day_counts.append(c)
-                if c > 1:
-                    soft_counts["same_subject_same_day"] += c - 1
+                if count_for_day > 1:
+                    soft_counts["same_subject_same_day"] += count_for_day - 1
             for day in DAYS:
                 for period in range(1, 9):
                     if (
@@ -299,13 +463,23 @@ def solve_theory(
     for section in SECTIONS:
         for day in DAYS:
             soft_counts["daily_load_imbalance"] += abs(
-                solver.Value(daily_count[(section, day)]) - 6
+                final_solver.Value(daily_count[(section, day)]) - 6
             )
             for p2 in range(2, 6):
-                if solver.Value(gap_var[(section, day, p2)]) == 1:
+                if final_solver.Value(gap_var[(section, day, p2)]) == 1:
                     soft_counts["intra_day_gaps_p1_p6"] += 1
 
     _print_section_grid(section_grid, section="A")
+    consecutive_stats = _print_same_day_consecutive_analysis(
+        section_grid=section_grid,
+        assignment_map=assignment_map,
+        faculty_df=faculty_df,
+    )
+    print(
+        f"Consecutive pairs achieved : {consecutive_stats['consecutive_pairs']} / "
+        f"{consecutive_stats['total_pairs']} total ({consecutive_stats['percentage']:.1f}%)"
+    )
+    print(f"Solver status              : {status_name}")
     print(
         f"\nPHASE 3 COMPLETE - theory slots filled | solver status: {status_name}"
     )
@@ -318,8 +492,18 @@ def solve_theory(
         "lab_details": lab_details,
         "solver_status": status_name,
         "soft_violations": soft_counts,
+        "consecutive_analysis": consecutive_stats,
+        "penalty_status": penalty_status_name,
+        "optimal_penalty": best_penalty,
+        "reward_stage_status": reward_status_name,
     }
 
 
 if __name__ == "__main__":
     solve_theory()
+
+
+
+
+
+
