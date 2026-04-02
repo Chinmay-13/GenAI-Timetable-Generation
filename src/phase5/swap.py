@@ -22,7 +22,7 @@ from src.phase5.substitute import (
     parse_timetable_cell,
 )
 
-PERIOD_COLUMNS = [f"P{i}" for i in range(1, 10)]
+PERIOD_COLUMNS = [f"P{i}" for i in range(1, 7)]
 
 
 def find_swap_slot(

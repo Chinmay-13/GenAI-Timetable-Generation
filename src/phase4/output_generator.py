@@ -6,11 +6,39 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.phase3.theory_scheduler import solve_theory, DAYS, PERIODS, SHORT_NAMES, MAX_HOURS
+from config import DAYS, PERIODS, LAB_PERIODS, SHORT_NAMES, MAX_HOURS, SECTIONS
+from src.phase3.theory_scheduler import solve_theory
 
-DATA_DIR = "data"
-OUTPUT_DIR = "outputs"
-SECTIONS = [chr(ord("A") + i) for i in range(12)]
+DATA_DIR = str(PROJECT_ROOT / "data")
+OUTPUT_DIR = str(PROJECT_ROOT / "outputs")
+
+
+def _write_csv_with_fallback(df, path: Path):
+    try:
+        df.to_csv(path, index=False)
+        return str(path)
+    except PermissionError:
+        fallback_path = path.with_name(f"{path.stem}.latest{path.suffix}")
+        df.to_csv(fallback_path, index=False)
+        print(
+            f"Warning: could not overwrite {path.name}; "
+            f"wrote latest data to {fallback_path.name} instead."
+        )
+        return str(fallback_path)
+
+
+def _write_text_with_fallback(content: str, path: Path):
+    try:
+        path.write_text(content, encoding="utf-8")
+        return str(path)
+    except PermissionError:
+        fallback_path = path.with_name(f"{path.stem}.latest{path.suffix}")
+        fallback_path.write_text(content, encoding="utf-8")
+        print(
+            f"Warning: could not overwrite {path.name}; "
+            f"wrote latest data to {fallback_path.name} instead."
+        )
+        return str(fallback_path)
 
 
 def _initials(name):
@@ -45,7 +73,7 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
         sections = item["sections"]
         faculty_id = item["faculty_id"]
         for sec in sections:
-            for p in [7, 8, 9]:
+            for p in LAB_PERIODS:
                 lab_lookup[(sec, day, p)] = {
                     "course": course,
                     "faculty_id": faculty_id,
@@ -70,7 +98,7 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
             rows.append(row)
 
         df = pd.DataFrame(rows, columns=["Day"] + period_cols)
-        df.to_csv(out_path / f"section_{section}_timetable.csv", index=False)
+        _write_csv_with_fallback(df, out_path / f"section_{section}_timetable.csv")
 
     faculty_ids = faculty_df["faculty_id"].tolist()
     faculty_table = {
@@ -104,7 +132,7 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
                 row[f"P{p}"] = faculty_table[fid][day][p]
             rows.append(row)
         df = pd.DataFrame(rows, columns=["Day"] + period_cols)
-        df.to_csv(out_path / f"faculty_{fid}_timetable.csv", index=False)
+        _write_csv_with_fallback(df, out_path / f"faculty_{fid}_timetable.csv")
 
     total_theory_slots = 0
     total_lab_slots = 0
@@ -125,7 +153,7 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
     report_lines.append(f"Total sections scheduled: {len(SECTIONS)}")
     report_lines.append(f"Total theory slots placed: {total_theory_slots}")
     report_lines.append(
-        f"Total lab slots placed: {total_lab_slots} (12 pairs x 3 periods x 2 sections = 72)"
+        f"Total lab slots placed: {total_lab_slots} (12 pairs x 2 periods x 2 sections = 48)"
     )
     report_lines.append("Soft constraint violations:")
     report_lines.append(
@@ -151,7 +179,7 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
             f"{fid} | {faculty_name[fid]} | {total} | {max_h} | {status}"
         )
 
-    (out_path / "summary_report.txt").write_text("\n".join(report_lines), encoding="utf-8")
+    _write_text_with_fallback("\n".join(report_lines), out_path / "summary_report.txt")
 
     print("PHASE 4 COMPLETE - all outputs generated in outputs/")
 

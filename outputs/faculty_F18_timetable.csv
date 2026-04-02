@@ -1,6 +1,6 @@
-Day,P1,P2,P3,P4,P5,P6,P7,P8,P9
-Monday,AFLL (F),----,AFLL (F),WT (D),WT (E),WT (F),----,----,----
-Tuesday,----,AFLL (F),WT (D),WT (E),WT (F),WT (D),----,----,----
-Wednesday,AFLL (F),WT (E),WT (F),WT (D),WT (E),----,----,----,----
-Thursday,WT (E),WT (D),WT (F),----,----,AFLL (F),----,----,----
-Friday,WT (F),WT (E),WT (D),WT (F),AFLL (F),----,----,----,----
+Day,P1,P2,P3,P4,P5,P6
+Monday,----,WT (D),WT (F),WT (E),----,----
+Tuesday,AFLL (F),WT (D),WT (F),WT (E),----,----
+Wednesday,----,----,----,AFLL (F),----,----
+Thursday,AFLL (F),WT (D),WT (E),WT (F),----,----
+Friday,AFLL (F),WT (E),WT (F),WT (D),----,----

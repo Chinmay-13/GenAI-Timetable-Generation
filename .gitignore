@@ -19,3 +19,12 @@ logs/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Generated RAG index (large binary + docs)
+outputs/rag_index.faiss
+outputs/rag_docs.json
+
+# Chat session memory
+outputs/chat_memory.json
+outputs/*.latest.csv
+outputs/*.latest.txt

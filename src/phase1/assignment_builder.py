@@ -1,7 +1,14 @@
 import pandas as pd
+from pathlib import Path
+import sys
 
-DATA_DIR = "data"
-SECTIONS = [chr(ord("A") + i) for i in range(12)]
+_AB_ROOT = Path(__file__).resolve().parents[2]
+if str(_AB_ROOT) not in sys.path:
+    sys.path.insert(0, str(_AB_ROOT))
+
+from config import SECTIONS
+
+DATA_DIR = str(_AB_ROOT / "data")
 LAB_COURSE_SHORT = {
     "UE24CS251A": "DDCO",
     "UE24CS252A": "DSA",

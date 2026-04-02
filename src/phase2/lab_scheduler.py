@@ -1,10 +1,14 @@
 import pandas as pd
+from pathlib import Path
+import sys
 
-DATA_DIR = "data"
-DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-PERIODS = list(range(1, 10))
-LAB_PERIODS = [7, 8, 9]
-SECTIONS = [chr(ord("A") + i) for i in range(12)]
+_LS_ROOT = Path(__file__).resolve().parents[2]
+if str(_LS_ROOT) not in sys.path:
+    sys.path.insert(0, str(_LS_ROOT))
+
+from config import DAYS, PERIODS, LAB_PERIODS, SECTIONS
+
+DATA_DIR = str(_LS_ROOT / "data")
 
 
 def _build_empty_grid(keys):
@@ -30,7 +34,7 @@ def lock_labs(data_dir=DATA_DIR):
     faculty_grid = _build_empty_grid(faculty_ids)
     room_grid = _build_empty_grid(room_names)
 
-    conflicts = []
+    all_conflicts = []
     lab_details = []
 
     print("\n=== PHASE 2: LAB SLOT LOCKING ===\n")
@@ -42,37 +46,40 @@ def lock_labs(data_dir=DATA_DIR):
         faculty_id = str(row["faculty_id"]).strip()
         sections = [s.strip() for s in str(row["section_pair"]).split(",") if s.strip()]
 
+        # Per-row conflict tracking (fixes bug where shared list skipped later rows)
+        row_conflicts = []
+
         if day not in DAYS:
-            conflicts.append(f"Invalid day in lab allotment: {day}")
-            continue
+            row_conflicts.append(f"Invalid day in lab allotment: {day}")
 
         if len(sections) != 2:
-            conflicts.append(f"Invalid section pair '{row['section_pair']}' for {course_code} on {day}")
-            continue
+            row_conflicts.append(f"Invalid section pair '{row['section_pair']}' for {course_code} on {day}")
 
         if faculty_designation.get(faculty_id) == "Prof":
-            conflicts.append(f"Prof {faculty_id} assigned to lab {course_code} on {day}")
+            row_conflicts.append(f"Prof {faculty_id} assigned to lab {course_code} on {day}")
 
         for section in sections:
             if section not in SECTIONS:
-                conflicts.append(f"Invalid section {section} in pair for {course_code} on {day}")
+                row_conflicts.append(f"Invalid section {section} in pair for {course_code} on {day}")
 
-        for period in LAB_PERIODS:
-            for section in sections:
-                if section_grid[section][day][period] is not None:
-                    conflicts.append(
-                        f"Section conflict: {section} already has {section_grid[section][day][period]} at {day} P{period}"
+        if not row_conflicts:
+            for period in LAB_PERIODS:
+                for section in sections:
+                    if section_grid[section][day][period] is not None:
+                        row_conflicts.append(
+                            f"Section conflict: {section} already has {section_grid[section][day][period]} at {day} P{period}"
+                        )
+                if faculty_grid[faculty_id][day][period] is not None:
+                    row_conflicts.append(
+                        f"Faculty conflict: {faculty_id} already has {faculty_grid[faculty_id][day][period]} at {day} P{period}"
                     )
-            if faculty_grid[faculty_id][day][period] is not None:
-                conflicts.append(
-                    f"Faculty conflict: {faculty_id} already has {faculty_grid[faculty_id][day][period]} at {day} P{period}"
-                )
-            if room_grid[room][day][period] is not None:
-                conflicts.append(
-                    f"Room conflict: {room} already has {room_grid[room][day][period]} at {day} P{period}"
-                )
+                if room_grid[room][day][period] is not None:
+                    row_conflicts.append(
+                        f"Room conflict: {room} already has {room_grid[room][day][period]} at {day} P{period}"
+                    )
 
-        if conflicts:
+        if row_conflicts:
+            all_conflicts.extend(row_conflicts)
             continue
 
         token = f"{course_code}_LAB"
@@ -94,12 +101,12 @@ def lock_labs(data_dir=DATA_DIR):
 
         print(
             f"LOCKED: {course_code.replace('UE24CS251A', 'DDCO').replace('UE24CS252A', 'DSA')}"
-            f" | {day} | P7-P9 | Sections {sections[0]}+{sections[1]} | Room: {room} | Faculty: {faculty_id}"
+            f" | {day} | P5-P6 | Sections {sections[0]}+{sections[1]} | Room: {room} | Faculty: {faculty_id}"
         )
 
-    if conflicts:
+    if all_conflicts:
         print("\nConflicts detected in lab allotment:")
-        for c in conflicts:
+        for c in all_conflicts:
             print(f"  CONFLICT: {c}")
         raise ValueError("Phase 2 failed due lab conflicts.")
 

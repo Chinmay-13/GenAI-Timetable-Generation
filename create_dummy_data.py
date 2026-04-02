@@ -1,7 +1,8 @@
 import pandas as pd
 import os
+from pathlib import Path
 
-data_dir = r"C:\admin\3rd year\sem6\E3_genai\timetable_system\data"
+data_dir = str(Path(__file__).resolve().parent / "data")
 os.makedirs(data_dir, exist_ok=True)
 
 # ── 1. COURSES ──────────────────────────────────────────────────────────────
@@ -65,11 +66,16 @@ assignments = pd.DataFrame([
     {"faculty_id": "F18",  "course_code": "UE24CS242A", "sections_handled": "D,E,F"},
     {"faculty_id": "F19",  "course_code": "UE24CS242A", "sections_handled": "G,H,I"},
     {"faculty_id": "F20",  "course_code": "UE24CS242A", "sections_handled": "J,K,L"},
-    # AFLL (12 sections)
-    {"faculty_id": "F04",  "course_code": "UE24CS243A", "sections_handled": "A,B"},
-    {"faculty_id": "F06",  "course_code": "UE24CS243A", "sections_handled": "C,D"},
-    {"faculty_id": "F08",  "course_code": "UE24CS243A", "sections_handled": "E,F"},
-    {"faculty_id": "F10",  "course_code": "UE24CS243A", "sections_handled": "G,H"},
+    # AFLL (12 sections — matches data/assignments.csv exactly)
+    # 8 single-section rows + 2 paired rows
+    {"faculty_id": "F04",  "course_code": "UE24CS243A", "sections_handled": "A"},
+    {"faculty_id": "F16",  "course_code": "UE24CS243A", "sections_handled": "B"},
+    {"faculty_id": "F06",  "course_code": "UE24CS243A", "sections_handled": "C"},
+    {"faculty_id": "F17",  "course_code": "UE24CS243A", "sections_handled": "D"},
+    {"faculty_id": "F08",  "course_code": "UE24CS243A", "sections_handled": "E"},
+    {"faculty_id": "F18",  "course_code": "UE24CS243A", "sections_handled": "F"},
+    {"faculty_id": "F10",  "course_code": "UE24CS243A", "sections_handled": "G"},
+    {"faculty_id": "F19",  "course_code": "UE24CS243A", "sections_handled": "H"},
     {"faculty_id": "F12",  "course_code": "UE24CS243A", "sections_handled": "I,J"},
     {"faculty_id": "F14",  "course_code": "UE24CS243A", "sections_handled": "K,L"},
 ])

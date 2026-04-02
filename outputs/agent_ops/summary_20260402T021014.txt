@@ -1,0 +1,17 @@
+# Monday absence demo — Agent Operations Summary
+Generated: 2026-04-02T02:10:14.010724
+Total operations: 2
+
+## [4cda3ed3] SUBSTITUTE
+- Section: B | Day: Monday | Periods: P2-P2
+- Absent faculty: F03
+- Substitute: F16
+- Result: SUCCESS
+- Reasoning: Demo: covering for absent F03
+
+## [8b8e600f] SUBSTITUTE
+- Section: B | Day: Monday | Periods: P1-P1
+- Absent faculty: F03
+- Substitute: F19
+- Result: SUCCESS
+- Reasoning: Demo: covering for absent F03

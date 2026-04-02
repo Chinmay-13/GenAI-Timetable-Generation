@@ -1,16 +1,26 @@
+"""
+ai_explainer.py — Timetable AI explainer with RAG support.
+
+Uses dynamic prompt builder (no hardcoded facts),
+Groq LLM via safe wrapper with retry, and data-driven fallback.
+"""
 from pathlib import Path
 import sys
 import warnings
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
-from dotenv import dotenv_values
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+import config
+from config import resolve_output_path, SECTIONS
+from src.phase5.prompt_builder import build_system_prompt
+from src.phase5.llm_wrapper import get_llm, safe_llm_call
 
 _CONTEXT_CACHE: Optional[Dict] = None
 
@@ -21,155 +31,60 @@ def _read_text(path: Path) -> str:
 
 def _extract_faculty_load_table(summary_text: str) -> str:
     lines = summary_text.splitlines()
-    start = next((i for i, line in enumerate(lines) if line.strip().lower().startswith("faculty load table")), None)
+    start = next(
+        (i for i, line in enumerate(lines)
+         if line.strip().lower().startswith("faculty load table")),
+        None,
+    )
     if start is None:
         return "Faculty load table not found in summary report."
     return "\n".join(lines[start:]).strip()
 
 
-def _build_system_prompt(context: Dict) -> str:
-    key_facts = """
-=== KEY FACTS FOR ANSWERING QUESTIONS ===
-
-Theory slots per section per course (all sections identical):
-  DDCO: 4 theory slots per week (Monday P2, Wednesday P6,
-        Thursday P4, Friday P7 - exact days vary by section
-        but count is always 4)
-  DSA:  4 theory slots per week
-  MATH: 4 theory slots per week
-  WT:   4 theory slots per week
-  AFLL: 4 theory slots per week
-
-Lab pairings (who shares lab with whom):
-  DDCO Lab (Monday P7-P9):
-    Section A shares lab with Section D (faculty F04)
-    Section B shares lab with Section J (faculty F05)
-    Section C shares lab with Section L (faculty F06)
-    Section E shares lab with Section I (faculty F07)
-    Section F shares lab with Section H (faculty F08)
-    Section G shares lab with Section K (faculty F09)
-  DSA Lab (Thursday P7-P9):
-    Section A shares lab with Section B (faculty F10)
-    Section C shares lab with Section J (faculty F11)
-    Section H shares lab with Section K (faculty F12)
-    Section E shares lab with Section D (faculty F13)
-    Section F shares lab with Section I (faculty F14)
-    Section G shares lab with Section L (faculty F15)
-
-Faculty designation rules:
-  Professors (F01, F02, F03) - theory only, CANNOT take labs
-  Asso Profs (F04-F10) - theory + lab allowed
-  Asst Profs (F11-F20) - theory + lab allowed
-
-=== END KEY FACTS ===
-""".strip()
-
-    prompt = f"""
-You are an AI assistant for a university timetable generation system for CSE department, 3rd semester, 12 sections (A-L), 5 courses.
-
-Course details:
-- DDCO (UE24CS251A): 5 credits, 4 theory + 2 lab hrs/week, has lab
-- DSA  (UE24CS252A): 5 credits, 4 theory + 2 lab hrs/week, has lab
-- MATH (UE24MA242A): 4 credits, 4 theory hrs/week, no lab
-- WT   (UE24CS242A): 4 credits, 4 theory hrs/week, no lab
-- AFLL (UE24CS243A): 4 credits, 4 theory hrs/week, no lab
-
-Time structure:
-- Mon-Fri, 9 periods/day, Saturday free
-- P1-P3 morning, short break, P4-P6 mid-morning, lunch, P7-P9 post-lunch
-- Lab window = P7, P8, P9 only
-
-Lab locking:
-- DDCO Lab: Monday P7-P9 (6 pairs)
-- DSA Lab: Thursday P7-P9 (6 pairs)
-
-Faculty rules:
-- Prof -> theory only, max 12 hrs/week
-- Asso Prof -> theory + lab, max 16 hrs/week
-- Asst Prof -> theory + lab, max 20 hrs/week
-
-Summary report (full):
-{context['summary_report']}
-
-{key_facts}
-
-Section A timetable CSV (full):
-{context['section_a_csv_for_prompt']}
-
-Faculty load table:
-{context['faculty_load_table']}
-
-courses.csv:
-{context['courses_csv']}
-
-faculty.csv:
-{context['faculty_csv']}
-
-assignments.csv:
-{context['assignments_csv']}
-""".strip()
-
-    if len(prompt) <= 8000:
-        return prompt
-
-    compact_section_csv = context["section_a_df"][
-        context["section_a_df"]["Day"].str.lower().isin(["monday", "thursday"])
-    ].to_csv(index=False).strip()
-
-    compact_prompt = f"""
-You are an AI assistant for a university timetable generation system for CSE department, 3rd semester, 12 sections (A-L), 5 courses.
-
-Course details:
-- DDCO (UE24CS251A): 5 credits, 4 theory + 2 lab hrs/week, has lab
-- DSA  (UE24CS252A): 5 credits, 4 theory + 2 lab hrs/week, has lab
-- MATH (UE24MA242A): 4 credits, 4 theory hrs/week, no lab
-- WT   (UE24CS242A): 4 credits, 4 theory hrs/week, no lab
-- AFLL (UE24CS243A): 4 credits, 4 theory hrs/week, no lab
-
-Time structure:
-- Mon-Fri, 9 periods/day, Saturday free
-- P1-P3 morning, short break, P4-P6 mid-morning, lunch, P7-P9 post-lunch
-- Lab window = P7, P8, P9 only
-
-Lab locking:
-- DDCO Lab: Monday P7-P9 (6 pairs)
-- DSA Lab: Thursday P7-P9 (6 pairs)
-
-Faculty rules:
-- Prof -> theory only, max 12 hrs/week
-- Asso Prof -> theory + lab, max 16 hrs/week
-- Asst Prof -> theory + lab, max 20 hrs/week
-
-Summary report (full):
-{context['summary_report']}
-
-{key_facts}
-
-Section A timetable CSV (Monday + Thursday rows):
-{compact_section_csv}
-
-Faculty load table:
-{context['faculty_load_table']}
-
-courses.csv:
-{context['courses_csv']}
-
-faculty.csv:
-{context['faculty_csv']}
-
-assignments.csv:
-{context['assignments_csv']}
-""".strip()
-    return compact_prompt[:8000]
+def load_actual_stats() -> dict:
+    """Read real values from outputs/summary_report.txt and data/courses.csv."""
+    import re
+    stats = {
+        "theory_slots": "unknown",
+        "lab_slots": "unknown",
+        "same_day_violations": "unknown",
+        "back_to_back_violations": "unknown",
+        "theory_hours_per_course": "unknown",
+    }
+    try:
+        summary_path = resolve_output_path("summary_report.txt")
+        content = summary_path.read_text(encoding="utf-8")
+        m = re.search(r"Total theory slots placed:\s*(\d+)", content)
+        if m:
+            stats["theory_slots"] = m.group(1)
+        m = re.search(r"Total lab slots placed:\s*(\d+)", content)
+        if m:
+            stats["lab_slots"] = m.group(1)
+        m = re.search(r"same_subject_same_day:\s*(\d+)", content)
+        if m:
+            stats["same_day_violations"] = m.group(1)
+        m = re.search(r"back_to_back_same_subject:\s*(\d+)", content)
+        if m:
+            stats["back_to_back_violations"] = m.group(1)
+    except FileNotFoundError:
+        pass
+    try:
+        courses_df = pd.read_csv(config.DATA_DIR / "courses.csv")
+        hours = courses_df["theory_hours"].iloc[0] if not courses_df.empty else "unknown"
+        stats["theory_hours_per_course"] = str(int(hours))
+    except Exception:
+        pass
+    return stats
 
 
 def setup_context(force_reload: bool = False) -> Dict:
+    """Load all context needed for the AI layer."""
     global _CONTEXT_CACHE
     if _CONTEXT_CACHE is not None and not force_reload:
         return _CONTEXT_CACHE
 
-    summary_path = PROJECT_ROOT / "outputs" / "summary_report.txt"
-    section_a_path = PROJECT_ROOT / "outputs" / "section_A_timetable.csv"
+    summary_path = resolve_output_path("summary_report.txt")
+    section_a_path = resolve_output_path("section_A_timetable.csv")
 
     summary_report = _read_text(summary_path)
     section_a_csv = _read_text(section_a_path)
@@ -179,31 +94,32 @@ def setup_context(force_reload: bool = False) -> Dict:
         "summary_report": summary_report,
         "section_a_csv": section_a_csv,
         "section_a_csv_for_prompt": section_a_csv,
-        "faculty_csv": _read_text(PROJECT_ROOT / "data" / "faculty.csv"),
-        "assignments_csv": _read_text(PROJECT_ROOT / "data" / "assignments.csv"),
-        "courses_csv": _read_text(PROJECT_ROOT / "data" / "courses.csv"),
+        "faculty_csv": _read_text(config.DATA_DIR / "faculty.csv"),
+        "assignments_csv": _read_text(config.DATA_DIR / "assignments.csv"),
+        "courses_csv": _read_text(config.DATA_DIR / "courses.csv"),
         "faculty_load_table": _extract_faculty_load_table(summary_report),
         "section_a_df": section_a_df,
-        "lab_df": pd.read_csv(PROJECT_ROOT / "data" / "lab_allotment.csv"),
+        "lab_df": pd.read_csv(config.DATA_DIR / "lab_allotment.csv"),
     }
-    context["system_prompt"] = _build_system_prompt(context)
+
+    # Use dynamic prompt builder
+    context["system_prompt"] = build_system_prompt(
+        outputs_dir=config.OUTPUT_DIR,
+        data_dir=config.DATA_DIR,
+        summary_text=summary_report,
+    )
     _CONTEXT_CACHE = context
     return context
 
 
-def _get_model(context: Dict):
-    env_values = dotenv_values(PROJECT_ROOT / ".env")
-    api_key = str(env_values.get("GEMINI_API_KEY", "")).strip()
-    if not api_key or api_key == "YOUR_GEMINI_API_KEY":
+def _get_llm(context: Dict):
+    """Create Groq LLM. Returns None if GROQ_API_KEY not set."""
+    if not config.GROQ_API_KEY:
         return None
-
     try:
-        import google.generativeai as genai
+        return get_llm()
     except Exception:
         return None
-
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel("gemini-1.5-flash", system_instruction=context["system_prompt"])
 
 
 def _history_block(history: Optional[List[Tuple[str, str]]]) -> str:
@@ -216,106 +132,168 @@ def _history_block(history: Optional[List[Tuple[str, str]]]) -> str:
     return "\n".join(lines)
 
 
-def _fallback_answer(user_question: str, context: Dict) -> str:
+def _try_direct_lookup(user_question: str) -> Optional[str]:
+    """
+    If query mentions a faculty name or ID, read their CSV directly
+    and return it as context. Returns None if no faculty detected.
+    """
     q = user_question.lower()
-    section_df = context["section_a_df"]
-    lab_df = context["lab_df"]
 
-    load_lines = [line.strip() for line in context["faculty_load_table"].splitlines() if line.strip().startswith("F")]
-    loads = []
-    for line in load_lines:
-        parts = [p.strip() for p in line.split("|")]
-        if len(parts) < 5:
-            continue
-        fid, name, total, max_h, _ = parts[:5]
-        try:
-            total_i = int(total)
-            max_i = int(max_h)
-        except ValueError:
-            continue
-        loads.append((fid, name, total_i, max_i, max_i - total_i))
+    try:
+        faculty_df = pd.read_csv(config.DATA_DIR / "faculty.csv")
+    except Exception:
+        return None
 
-    if "identify any potential issues" in q or "faculty load fairness" in q or "fatigue" in q:
-        return (
-            "Overall, the timetable is constraint-compliant with zero soft violations, so structural quality is strong. "
-            "Faculty fairness is mostly acceptable, but a few faculty are close to max load and should be monitored for resilience. "
-            "Section A is reasonably spread across weekdays; the main fatigue concentration is fixed Monday/Thursday lab afternoons."
+    matched_fid = None
+    for _, row in faculty_df.iterrows():
+        name_lower = str(row["name"]).lower()
+        fid = str(row["faculty_id"]).strip()
+        # Match by name words (>3 chars) or faculty ID
+        if any(word in q for word in name_lower.split() if len(word) > 3):
+            matched_fid = fid
+            break
+        if fid.lower() in q:
+            matched_fid = fid
+            break
+
+    if not matched_fid:
+        return None
+
+    path = resolve_output_path(f"faculty_{matched_fid}_timetable.csv")
+    if not path or not path.exists():
+        return None
+
+    try:
+        df = pd.read_csv(path)
+        day_counts = {}
+        for _, row in df.iterrows():
+            day = str(row.get("Day", ""))
+            count = sum(
+                1 for p in ["P1", "P2", "P3", "P4"]
+                if str(row.get(p, "")).strip() not in ["", "----", "nan"]
+            )
+            day_counts[day] = count
+        schedule_text = df.to_csv(index=False)
+        counts_text = ", ".join(
+            f"{d}: {c} classes" for d, c in day_counts.items()
         )
-
-    if "ddco lab" in q and "monday" in q and "why" in q:
-        return "Section A has DDCO lab on Monday because DDCO labs are hard-locked to Monday P7-P9, and Section A is paired with Section D in that fixed slot."
-
-    if "how many theory slots" in q and "section a" in q and "ddco" in q:
-        return "Section A has 4 DDCO theory slots per week."
-
-    if "which sections share lab with section a on monday" in q or ("share" in q and "section a" in q and "monday" in q and "lab" in q):
-        return "On Monday (DDCO lab), Section A shares lab with Section D."
-
-    if "closest" in q and ("overload" in q or "load" in q):
-        top = sorted(loads, key=lambda x: x[4])[:4]
-        return "Faculty closest to overload are " + ", ".join([f"{fid} ({t}/{m})" for fid, _, t, m, _ in top]) + "."
-
-    if "well spread" in q or ("section a" in q and "good" in q and "students" in q):
-        return "Section A is fairly well spread across weekdays with fixed lab afternoons on Monday/Thursday; solver soft-violation count is zero, so distribution is clean."
-
-    if "professor" in q and "dsa lab" in q:
-        return "No. Professors are theory-only and cannot be assigned to DSA labs."
-
-    if "free periods" in q and "wednesday" in q and "section a" in q:
-        row = section_df[section_df["Day"].str.lower() == "wednesday"].iloc[0]
-        free_count = sum(1 for p in [f"P{i}" for i in range(1, 10)] if str(row[p]).strip() == "----")
-        return f"Section A has {free_count} free periods on Wednesday."
-
-    if "lose" in q and "lab room" in q and "monday" in q:
-        pairs = [p.replace(",", "+") for p in lab_df[(lab_df["day"] == "Monday") & (lab_df["course_code"] == "UE24CS251A")]["section_pair"].tolist()]
-        return f"Losing one Monday lab room blocks one DDCO pair at P7-P9; Monday DDCO pairs are {', '.join(pairs)}."
-
-    if "share" in q and "ddco lab" in q and "section a" in q:
-        row = lab_df[(lab_df["day"] == "Monday") & (lab_df["course_code"] == "UE24CS251A") & (lab_df["section_pair"].str.contains("A"))].iloc[0]
-        parts = [s.strip() for s in row["section_pair"].split(",")]
-        other = parts[1] if parts[0] == "A" else parts[0]
-        return f"Section A shares DDCO lab with Section {other} on Monday P7-P9."
-
-    if "summarize" in q and "3 sentence" in q:
-        return "The timetable schedules 12 sections across 5 courses with OPTIMAL status and all hard constraints satisfied. It places 240 theory slots and 72 lab slots, with DDCO labs Monday P7-P9 and DSA labs Thursday P7-P9. Faculty limits are respected and soft violations are zero."
-
-    if "most balanced workload" in q and loads:
-        balanced = sorted(loads, key=lambda x: abs((x[2] / x[3]) - 0.8))[:4]
-        return "Balanced workload faculty include " + ", ".join([f"{fid} ({t}/{m})" for fid, _, t, m, _ in balanced]) + "."
-
-    if "key constraints" in q:
-        return "Satisfied constraints include no faculty/section/room overlap, fixed lab window P7-P9, no Professors on labs, load caps by designation, exact theory-hour requirements, and paired synchronized lab allocation."
-
-    if "absent" in q and "monday" in q:
-        return "A Monday absence mostly disrupts DDCO lab allocations because labs are fixed in P7-P9; each affected lab faculty absence hits one paired group of two sections."
-
-    return "All hard constraints are satisfied, labs are fixed in P7-P9 windows, and faculty loads are within limits. Ask a section/faculty specific question for more detail."
+        return (
+            f"Faculty {matched_fid} timetable:\n{schedule_text}\n"
+            f"Class counts per day: {counts_text}"
+        )
+    except Exception:
+        return None
 
 
-def explain(user_question: str, history: Optional[List[Tuple[str, str]]] = None) -> str:
+def _fallback_answer(user_question: str, context: Dict) -> str:
+    """
+    Data-driven fallback when LLM is unavailable.
+    Reads from output CSVs directly instead of hardcoded strings.
+    """
+    q = user_question.lower()
+
+    try:
+        # Section timetable query
+        for section in SECTIONS:
+            if f"section {section.lower()}" in q or \
+               f"section {section}" in q:
+                path = resolve_output_path(
+                    f"section_{section}_timetable.csv"
+                )
+                if path.exists():
+                    return path.read_text(encoding="utf-8")
+
+        # Faculty query by ID or name
+        faculty_df = pd.read_csv(config.DATA_DIR / "faculty.csv")
+        for _, row in faculty_df.iterrows():
+            fid = str(row["faculty_id"]).strip()
+            fname = str(row["name"]).strip()
+            if fid.lower() in q or fname.lower() in q:
+                path = resolve_output_path(
+                    f"faculty_{fid}_timetable.csv"
+                )
+                if path.exists():
+                    return path.read_text(encoding="utf-8")
+
+        # Default: return summary report
+        path = resolve_output_path("summary_report.txt")
+        if path.exists():
+            return path.read_text(encoding="utf-8")
+
+    except Exception as e:
+        return f"Timetable data temporarily unavailable. Error: {e}"
+
+    return "Could not find relevant timetable information for your query."
+
+
+def explain(user_question: str,
+            history: Optional[List[Tuple[str, str]]] = None) -> str:
+    """Answer a timetable question using Groq LLM with safe retry."""
     context = setup_context()
-    model = _get_model(context)
-    if model is None:
+    llm = _get_llm(context)
+    if llm is None:
         return _fallback_answer(user_question, context)
 
-    prompt = f"{_history_block(history)}\n\nUser question: {user_question}".strip()
-    for _ in range(2):
-        try:
-            response = model.generate_content(prompt, request_options={"timeout": 10})
-            text = getattr(response, "text", None)
-            if text and text.strip():
-                return text.strip()
-        except Exception:
-            continue
+    # Direct data lookup — inject actual CSV into prompt
+    direct_context = _try_direct_lookup(user_question)
+
+    # Build system prompt with optional direct data
+    system_prompt = context["system_prompt"]
+    if direct_context:
+        system_prompt += f"\n\nDIRECT TIMETABLE DATA:\n{direct_context}"
+
+    history_text = _history_block(history)
+    full_prompt = (
+        f"{system_prompt}\n\n"
+        f"{history_text}\n\n"
+        f"User question: {user_question}"
+    ).strip()
+
+    try:
+        response = safe_llm_call(llm, full_prompt)
+        text = getattr(response, "content", None) or str(response)
+        if text and text.strip():
+            return text.strip()
+    except RuntimeError as e:
+        if "exhausted" in str(e).lower() or "rate" in str(e).lower():
+            return (
+                "⚠️ AI temporarily unavailable (rate limit).\n\n"
+                + _fallback_answer(user_question, context)
+            )
+        raise
+    except Exception:
+        pass
 
     fallback = _fallback_answer(user_question, context)
     return fallback if fallback.strip() else "Could not generate response. Please try again."
 
 
+def explain_with_rag(user_question: str,
+                     history: Optional[List[Tuple[str, str]]] = None) -> str:
+    """Use RAG to retrieve relevant timetable context, then call explain()."""
+    try:
+        from src.phase5.rag_indexer import retrieve
+        relevant = retrieve(user_question, k=5)
+        if relevant:
+            context_lines = [r["text"] for r in relevant]
+            citations = list({r["source"] for r in relevant})
+            augmented_question = (
+                f"Context from timetable data:\n"
+                + "\n".join(context_lines)
+                + f"\n\nQuestion: {user_question}"
+                + f"\n\nSources: {', '.join(citations)}"
+            )
+            return explain(augmented_question, history=history)
+    except Exception:
+        pass
+    return explain(user_question, history=history)
+
+
 def detect_issues() -> str:
     question = (
-        "Based on the timetable data provided, identify any potential issues, imbalances, or improvements. "
-        "Focus on: faculty load fairness, subject distribution across the week for Section A, and fatigue patterns."
+        "Based on the timetable data provided, identify any potential issues, "
+        "imbalances, or improvements. Focus on: faculty load fairness, "
+        "subject distribution across the week for Section A, and fatigue patterns."
     )
     return explain(question)
 

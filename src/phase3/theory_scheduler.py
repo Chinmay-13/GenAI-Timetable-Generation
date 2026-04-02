@@ -12,21 +12,29 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from config import (
+    DAYS,
+    PERIODS,
+    THEORY_PERIODS,
+    LAB_PERIODS,
+    SECTIONS,
+    SHORT_NAMES,
+    MAX_HOURS,
+    PENALTY_STAGE_TIME,
+    REWARD_STAGE_TIME,
+    NUM_WORKERS,
+    PENALTY_GAP,
+    PENALTY_LAB_WINDOW,
+    PENALTY_BACK_TO_BACK,
+    PENALTY_SAME_DAY,
+    REWARD_CONSECUTIVENESS,
+    CONSECUTIVENESS_TIME_LIMIT,
+    get_theory_periods,
+)
 from src.phase1.assignment_builder import build_assignment_map
 from src.phase2.lab_scheduler import lock_labs
 
-DATA_DIR = "data"
-DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-PERIODS = list(range(1, 10))
-SECTIONS = [chr(ord("A") + i) for i in range(12)]
-SHORT_NAMES = {
-    "UE24CS251A": "DDCO",
-    "UE24CS252A": "DSA",
-    "UE24MA242A": "MATH",
-    "UE24CS242A": "WT",
-    "UE24CS243A": "AFLL",
-}
-MAX_HOURS = {"Prof": 12, "Asso Prof": 16, "Asst Prof": 20}
+DATA_DIR = str(PROJECT_ROOT / "data")
 
 
 def _is_lab_token(value):
@@ -40,9 +48,9 @@ def _initials(name):
 
 def _print_section_grid(section_grid, section="A"):
     print(f"\nSection {section} timetable:\n")
-    header = ["Day", "P1", "P2", "P3", "P4", "P5", "P6", "LUNCH", "P7", "P8", "P9"]
+    header = ["Day", "P1", "P2", "P3", "P4", "P5", "P6"]
     print(" | ".join(f"{h:<6}" for h in header))
-    print("-" * 96)
+    print("-" * 60)
 
     for day in DAYS:
         row = [f"{day:<6}"]
@@ -56,8 +64,6 @@ def _print_section_grid(section_grid, section="A"):
             else:
                 cell = SHORT_NAMES.get(value, value)
             row.append(f"{cell:<6}")
-            if p == 6:
-                row.append(f"{'':<6}")
         print(" | ".join(row))
 
 
@@ -201,7 +207,20 @@ def solve_theory(
         section_grid, faculty_grid, room_grid, lab_details = lock_labs(data_dir=data_dir)
 
     course_codes = courses_df["course_code"].tolist()
-    theory_hours = {course_code: 6 for course_code in courses_df["course_code"].tolist()}
+    theory_periods_map = {}
+    for _, course_row in courses_df.iterrows():
+        course_code = course_row["course_code"]
+        credits = int(course_row["credits"])
+        has_lab = course_row["has_lab"]
+        theory_periods_map[course_code] = get_theory_periods(credits, has_lab)
+
+    total_theory = sum(theory_periods_map.values())
+    base_daily_target = total_theory // len(DAYS)
+    extra_days = total_theory % len(DAYS)
+    daily_targets = {
+        day: base_daily_target + (1 if day_idx < extra_days else 0)
+        for day_idx, day in enumerate(DAYS)
+    }
     faculty_ids = faculty_df["faculty_id"].tolist()
     faculty_course_sections = _faculty_course_sections(assignment_map)
 
@@ -219,7 +238,7 @@ def solve_theory(
                 for period in PERIODS:
                     if section_grid[section][day][period] is not None:
                         continue
-                    if day in section_lab_days[section] and period in (7, 8, 9):
+                    if day in section_lab_days[section] and period in LAB_PERIODS:
                         continue
                     x[(section, course, day, period)] = model.NewBoolVar(
                         f"x_{section}_{course}_{day}_{period}"
@@ -233,7 +252,7 @@ def solve_theory(
                 for period in PERIODS
                 if (section, course, day, period) in x
             ]
-            model.Add(sum(vars_for_course) == int(theory_hours[course]))
+            model.Add(sum(vars_for_course) == int(theory_periods_map[course]))
 
     for section in SECTIONS:
         for day in DAYS:
@@ -265,13 +284,32 @@ def solve_theory(
                     if vars_for_faculty:
                         model.Add(sum(vars_for_faculty) <= 1)
 
+    # ── Hard faculty total-slot cap per designation ──────────────────────────
+    faculty_designation = dict(zip(faculty_df["faculty_id"], faculty_df["designation"]))
+    for faculty_id in faculty_ids:
+        all_faculty_vars = []
+        for course in course_codes:
+            for section, assigned_faculty in assignment_map[course].items():
+                if assigned_faculty != faculty_id:
+                    continue
+                for day in DAYS:
+                    for period in PERIODS:
+                        key = (section, course, day, period)
+                        if key in x:
+                            all_faculty_vars.append(x[key])
+        if all_faculty_vars:
+            desig = faculty_designation.get(faculty_id, "Asst Prof")
+            cap = MAX_HOURS.get(desig, 20)
+            model.Add(sum(all_faculty_vars) <= cap)
+
+
     penalty_terms = []
     reward_terms = []
     soft_counts = {
         "same_subject_same_day": 0,
         "back_to_back_same_subject": 0,
-        "p7_p9_theory_non_lab_day": 0,
-        "intra_day_gaps_p1_p6": 0,
+        "lab_window_theory_non_lab_day": 0,
+        "intra_day_gaps": 0,
         "daily_load_imbalance": 0,
     }
 
@@ -281,7 +319,7 @@ def solve_theory(
 
     for section in SECTIONS:
         for day in DAYS:
-            for period in range(1, 7):
+            for period in THEORY_PERIODS:
                 used = model.NewBoolVar(f"is_used_{section}_{day}_{period}")
                 is_used[(section, day, period)] = used
 
@@ -296,40 +334,45 @@ def solve_theory(
                 else:
                     model.Add(used == 0)
 
-            for period in range(1, 6):
-                model.Add(
-                    is_used[(section, day, period)]
-                    >= is_used[(section, day, period + 1)]
-                )
+            # NOTE: Monotonic constraint removed — was forcing is_used[p] >= is_used[p+1]
+            # which made P5/P6 empty. Now P5-P6 are lab slots, so this is no longer needed.
 
-            dcount = model.NewIntVar(0, 6, f"daily_count_{section}_{day}")
+            dcount = model.NewIntVar(0, len(THEORY_PERIODS), f"daily_count_{section}_{day}")
             model.Add(
                 dcount
-                == sum(is_used[(section, day, period)] for period in range(1, 7))
+                == sum(is_used[(section, day, period)] for period in THEORY_PERIODS)
             )
-            model.Add(dcount == 6)
+            model.Add(dcount == daily_targets[day])
             daily_count[(section, day)] = dcount
 
-            for p2 in range(2, 6):
+            for p2 in range(2, len(THEORY_PERIODS) + 1):  # P2 to P4
+                p_start = THEORY_PERIODS[0]
+                p_end = THEORY_PERIODS[-1]
                 hb = model.NewBoolVar(f"has_before_{section}_{day}_{p2}")
                 ha = model.NewBoolVar(f"has_after_{section}_{day}_{p2}")
                 gv = model.NewBoolVar(f"gap_{section}_{day}_{p2}")
                 gap_var[(section, day, p2)] = gv
 
-                before_vars = [is_used[(section, day, p)] for p in range(1, p2)]
-                after_vars = [is_used[(section, day, p)] for p in range(p2 + 1, 7)]
+                before_vars = [is_used[(section, day, p)] for p in range(p_start, p2)]
+                after_vars = [is_used[(section, day, p)] for p in range(p2 + 1, p_end + 1)]
 
-                model.Add(sum(before_vars) >= hb)
-                model.Add(sum(before_vars) <= len(before_vars) * hb)
-                model.Add(sum(after_vars) >= ha)
-                model.Add(sum(after_vars) <= len(after_vars) * ha)
+                if before_vars:
+                    model.Add(sum(before_vars) >= hb)
+                    model.Add(sum(before_vars) <= len(before_vars) * hb)
+                else:
+                    model.Add(hb == 0)
+                if after_vars:
+                    model.Add(sum(after_vars) >= ha)
+                    model.Add(sum(after_vars) <= len(after_vars) * ha)
+                else:
+                    model.Add(ha == 0)
 
                 model.Add(gv <= hb)
                 model.Add(gv <= ha)
                 model.Add(gv <= 1 - is_used[(section, day, p2)])
                 model.Add(gv >= hb + ha + (1 - is_used[(section, day, p2)]) - 2)
 
-                penalty_terms.append(gv * 100)
+                penalty_terms.append(gv * PENALTY_GAP)
 
     for section in SECTIONS:
         for course in course_codes:
@@ -342,9 +385,9 @@ def solve_theory(
                 if day_vars:
                     over = model.NewIntVar(0, len(PERIODS), f"over_{section}_{course}_{day}")
                     model.Add(over >= sum(day_vars) - 1)
-                    penalty_terms.append(over * 3)
+                    penalty_terms.append(over * PENALTY_SAME_DAY)
 
-                for period in range(1, 9):
+                for period in range(1, len(PERIODS)):  # adjacent pairs within P1-P6
                     k1 = (section, course, day, period)
                     k2 = (section, course, day, period + 1)
                     if k1 in x and k2 in x:
@@ -352,14 +395,14 @@ def solve_theory(
                         model.Add(adj <= x[k1])
                         model.Add(adj <= x[k2])
                         model.Add(adj >= x[k1] + x[k2] - 1)
-                        penalty_terms.append(adj * 5)
+                        penalty_terms.append(adj * PENALTY_BACK_TO_BACK)
 
     for faculty_id, course_map in faculty_course_sections.items():
         for course, sections in course_map.items():
             for section_i, section_j in combinations(sections, 2):
                 for day in DAYS:
                     day_reward_vars = []
-                    for period in range(1, 6):
+                    for period in range(1, len(THEORY_PERIODS)):  # adjacent in P1-P4
                         key_i = (section_i, course, day, period)
                         key_j_next = (section_j, course, day, period + 1)
                         if key_i in x and key_j_next in x:
@@ -387,21 +430,22 @@ def solve_theory(
                     if day_reward_vars:
                         model.Add(sum(day_reward_vars) <= 1)
 
+    # ── Penalize theory in lab window (P5-P6) on non-lab days ────────────
     for section in SECTIONS:
         for day in DAYS:
             if day in section_lab_days[section]:
                 continue
             for course in course_codes:
-                for period in (7, 8, 9):
+                for period in LAB_PERIODS:
                     key = (section, course, day, period)
                     if key in x:
-                        penalty_terms.append(x[key] * 50)
+                        penalty_terms.append(x[key] * PENALTY_LAB_WINDOW)
 
     penalty_expr = sum(penalty_terms) if penalty_terms else 0
     reward_expr = sum(reward_terms) if reward_terms else 0
 
     model.Minimize(penalty_expr)
-    penalty_solver = _build_solver(max_time_seconds=120, workers=8)
+    penalty_solver = _build_solver(max_time_seconds=PENALTY_STAGE_TIME, workers=NUM_WORKERS)
     penalty_status = penalty_solver.Solve(model)
     penalty_status_name = penalty_solver.StatusName(penalty_status)
 
@@ -416,7 +460,7 @@ def solve_theory(
         model.AddHint(x[key], penalty_solver.Value(x[key]))
     model.Maximize(reward_expr)
 
-    reward_solver = _build_solver(max_time_seconds=60, workers=8)
+    reward_solver = _build_solver(max_time_seconds=REWARD_STAGE_TIME, workers=NUM_WORKERS)
     reward_status = reward_solver.Solve(model)
     reward_status_name = reward_solver.StatusName(reward_status)
 
@@ -426,6 +470,97 @@ def solve_theory(
         final_solver = penalty_solver
 
     status_name = penalty_status_name
+
+    # ── Consecutiveness for same-faculty same-section same-day ───────────
+    # Phase A enforces hard constraint; Phase B falls back to soft reward
+    # if Phase A is infeasible. This ensures consecutive placement
+    # whenever the problem structure allows it.
+    consecutiveness_phase = "N/A"
+
+    # Collect (faculty, section, course, day) combinations where faculty
+    # teaches 2+ theory slots for the SAME section on the SAME day.
+    # We build this from the current solution to see where it might apply.
+    same_sec_tuples = []
+    for course in course_codes:
+        for section in SECTIONS:
+            faculty_id = assignment_map[course].get(section)
+            if faculty_id is None:
+                continue
+            for day in DAYS:
+                day_vars_list = [
+                    (period, x[(section, course, day, period)])
+                    for period in THEORY_PERIODS
+                    if (section, course, day, period) in x
+                ]
+                if len(day_vars_list) >= 2:
+                    count_val = sum(
+                        final_solver.Value(v) for _, v in day_vars_list
+                    )
+                    if count_val >= 2:
+                        same_sec_tuples.append((faculty_id, section, course, day, day_vars_list))
+
+    if same_sec_tuples:
+        print(f"\nConsecutiveness: {len(same_sec_tuples)} (faculty, section, course, day) groups with 2+ slots detected")
+
+        # Phase A: Try hard constraint
+        model_a = model.Clone()
+        consec_hard_constraints = []
+        for faculty_id, section, course, day, day_vars_list in same_sec_tuples:
+            # For periods where var exists, require at least one adjacent used pair
+            adj_vars = []
+            for i in range(len(day_vars_list) - 1):
+                p1, v1 = day_vars_list[i]
+                p2, v2 = day_vars_list[i + 1]
+                if p2 == p1 + 1:  # adjacent periods
+                    adj_pair = model_a.NewBoolVar(
+                        f"consec_hard_{faculty_id}_{section}_{course}_{day}_{p1}"
+                    )
+                    model_a.Add(adj_pair <= v1)
+                    model_a.Add(adj_pair <= v2)
+                    model_a.Add(adj_pair >= v1 + v2 - 1)
+                    adj_vars.append(adj_pair)
+            if adj_vars:
+                model_a.Add(sum(adj_vars) >= 1)
+                consec_hard_constraints.append((faculty_id, section, course, day))
+
+        if consec_hard_constraints:
+            solver_a = _build_solver(max_time_seconds=CONSECUTIVENESS_TIME_LIMIT, workers=NUM_WORKERS)
+            status_a = solver_a.Solve(model_a)
+
+            if status_a in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                print("  Phase A (hard consecutiveness) FEASIBLE — using this solution")
+                consecutiveness_phase = "Phase A (hard)"
+                final_solver = solver_a
+            else:
+                print("  Phase A INFEASIBLE — falling back to Phase B (soft reward)")
+                # Phase B: Add soft reward for consecutiveness
+                consec_reward_terms = []
+                for faculty_id, section, course, day, day_vars_list in same_sec_tuples:
+                    for i in range(len(day_vars_list) - 1):
+                        p1, v1 = day_vars_list[i]
+                        p2, v2 = day_vars_list[i + 1]
+                        if p2 == p1 + 1:
+                            soft_adj = model.NewBoolVar(
+                                f"consec_soft_{faculty_id}_{section}_{course}_{day}_{p1}"
+                            )
+                            model.Add(soft_adj <= v1)
+                            model.Add(soft_adj <= v2)
+                            model.Add(soft_adj >= v1 + v2 - 1)
+                            consec_reward_terms.append(soft_adj * REWARD_CONSECUTIVENESS)
+
+                if consec_reward_terms:
+                    combined_reward = reward_expr + sum(consec_reward_terms)
+                    model.Maximize(combined_reward)
+                    solver_b = _build_solver(max_time_seconds=REWARD_STAGE_TIME, workers=NUM_WORKERS)
+                    status_b = solver_b.Solve(model)
+                    if status_b in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                        final_solver = solver_b
+                    consecutiveness_phase = "Phase B (soft)"
+        else:
+            consecutiveness_phase = "N/A (no adjacent period pairs to constrain)"
+    else:
+        print("\nConsecutiveness: No same-faculty same-section same-day 2+ slot groups found")
+        consecutiveness_phase = "N/A (no qualifying groups)"
 
     for (section, course, day, period), var in x.items():
         if final_solver.Value(var) == 1:
@@ -448,26 +583,27 @@ def solve_theory(
                 if count_for_day > 1:
                     soft_counts["same_subject_same_day"] += count_for_day - 1
             for day in DAYS:
-                for period in range(1, 9):
+                for period in range(1, len(PERIODS)):
                     if (
                         section_grid[section][day][period] == course
                         and section_grid[section][day][period + 1] == course
                     ):
                         soft_counts["back_to_back_same_subject"] += 1
 
-            if day not in section_lab_days[section]:
-                for period in (7, 8, 9):
-                    if section_grid[section][day][period] == course:
-                        soft_counts["p7_p9_theory_non_lab_day"] += 1
+            for day in DAYS:
+                if day not in section_lab_days[section]:
+                    for period in LAB_PERIODS:
+                        if section_grid[section][day][period] == course:
+                            soft_counts["lab_window_theory_non_lab_day"] += 1
 
     for section in SECTIONS:
         for day in DAYS:
             soft_counts["daily_load_imbalance"] += abs(
-                final_solver.Value(daily_count[(section, day)]) - 6
+                final_solver.Value(daily_count[(section, day)]) - daily_targets[day]
             )
-            for p2 in range(2, 6):
+            for p2 in range(2, len(THEORY_PERIODS) + 1):
                 if final_solver.Value(gap_var[(section, day, p2)]) == 1:
-                    soft_counts["intra_day_gaps_p1_p6"] += 1
+                    soft_counts["intra_day_gaps"] += 1
 
     _print_section_grid(section_grid, section="A")
     consecutive_stats = _print_same_day_consecutive_analysis(
@@ -480,6 +616,7 @@ def solve_theory(
         f"{consecutive_stats['total_pairs']} total ({consecutive_stats['percentage']:.1f}%)"
     )
     print(f"Solver status              : {status_name}")
+    print(f"Consecutiveness phase      : {consecutiveness_phase}")
     print(
         f"\nPHASE 3 COMPLETE - theory slots filled | solver status: {status_name}"
     )
@@ -496,14 +633,9 @@ def solve_theory(
         "penalty_status": penalty_status_name,
         "optimal_penalty": best_penalty,
         "reward_stage_status": reward_status_name,
+        "consecutiveness_phase": consecutiveness_phase,
     }
 
 
 if __name__ == "__main__":
     solve_theory()
-
-
-
-
-
-

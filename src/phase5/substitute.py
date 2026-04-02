@@ -15,19 +15,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-MAX_HOURS = {"Prof": 12, "Asso Prof": 16, "Asst Prof": 20}
-SHORT_NAMES = {
-    "UE24CS251A": "DDCO",
-    "UE24CS252A": "DSA",
-    "UE24MA242A": "MATH",
-    "UE24CS242A": "WT",
-    "UE24CS243A": "AFLL",
-}
+from config import DAYS, LAB_PERIODS, MAX_HOURS, SHORT_NAMES, resolve_output_path
+
 
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
 DATA_DIR = PROJECT_ROOT / "data"
-PERIOD_COLUMNS = [f"P{i}" for i in range(1, 10)]
+PERIOD_COLUMNS = [f"P{i}" for i in range(1, 7)]
 DAY_ALIASES = {
     "mon": "Monday",
     "monday": "Monday",
@@ -48,6 +41,19 @@ SHORT_NAME_TO_CODE = {short_name: code for code, short_name in SHORT_NAMES.items
 CELL_PATTERN = re.compile(
     r"^(?P<course>[A-Z0-9]+)(?:\s+LAB)?\s*\((?P<section>[A-Z](?:\+[A-Z])*)\)$"
 )
+
+LAB_PERIOD_COLUMNS = {f"P{p}" for p in LAB_PERIODS}
+
+
+def get_lab_block_periods(period: str) -> list:
+    """
+    If the given period is in the lab window (P5 or P6), return the full
+    lab block ["P5", "P6"] so substitute search treats them atomically.
+    Otherwise return [period] unchanged.
+    """
+    if period in LAB_PERIOD_COLUMNS:
+        return [f"P{p}" for p in LAB_PERIODS]
+    return [period]
 
 
 def normalize_day(day: str) -> str:
@@ -140,7 +146,7 @@ def all_faculty_ids() -> List[str]:
 
 @lru_cache(maxsize=None)
 def load_faculty_timetable(faculty_id: str) -> pd.DataFrame:
-    path = OUTPUT_DIR / f"faculty_{faculty_id}_timetable.csv"
+    path = resolve_output_path(f"faculty_{faculty_id}_timetable.csv")
     if not path.exists():
         raise FileNotFoundError(f"Faculty timetable not found for {faculty_id}: {path}")
     df = pd.read_csv(path)
@@ -150,7 +156,7 @@ def load_faculty_timetable(faculty_id: str) -> pd.DataFrame:
 
 @lru_cache(maxsize=None)
 def load_section_timetable(section: str) -> pd.DataFrame:
-    path = OUTPUT_DIR / f"section_{section}_timetable.csv"
+    path = resolve_output_path(f"section_{section}_timetable.csv")
     if not path.exists():
         raise FileNotFoundError(f"Section timetable not found for {section}: {path}")
     df = pd.read_csv(path)
@@ -310,39 +316,78 @@ def find_substitute(absent_faculty_id: str, absent_day: str) -> Dict[str, object
     substitutions: List[Dict[str, object]] = []
     unresolved: List[Dict[str, object]] = []
 
+    # Track which periods are already handled (for lab-block atomicity)
+    handled_periods = set()
+
     for slot in original_slots:
+        period_str = str(slot["period"])
+        if period_str in handled_periods:
+            continue
+
+        # Expand to full lab block if in lab window
+        block_periods = get_lab_block_periods(period_str)
+        is_lab_block = len(block_periods) > 1
+
         ranked = _rank_candidates(
             absent_faculty_id=faculty_id,
             absent_designation=absent_info["designation"],
             day=day,
-            period=str(slot["period"]),
+            period=period_str,
             slot_info=slot,
         )
+
+        if is_lab_block:
+            # Filter: only keep candidates free for ALL periods in the block
+            filtered = []
+            for candidate in ranked:
+                all_free = True
+                for bp in block_periods:
+                    try:
+                        bp_row = get_faculty_day_row(candidate["faculty_id"], day)
+                        if str(bp_row[bp]).strip() != "----":
+                            all_free = False
+                            break
+                    except Exception:
+                        all_free = False
+                        break
+                if all_free:
+                    filtered.append(candidate)
+            ranked = filtered
+
         if not ranked:
-            unresolved.append(
-                {
-                    "period": slot["period"],
-                    "course": slot["course"],
-                    "section": slot["section"],
-                    "reason": "No substitute available",
-                }
-            )
+            for bp in block_periods:
+                unresolved.append(
+                    {
+                        "period": bp,
+                        "course": slot["course"],
+                        "section": slot["section"],
+                        "reason": "No substitute available" + (
+                            " (lab block requires full P5-P6 coverage)"
+                            if is_lab_block else ""
+                        ),
+                    }
+                )
+            handled_periods.update(block_periods)
             continue
 
         chosen = ranked[0]
-        substitutions.append(
-            {
-                "period": slot["period"],
-                "course": slot["course"],
-                "course_code": slot["course_code"],
-                "section": slot["section"],
-                "substitute_id": chosen["faculty_id"],
-                "substitute_name": chosen["faculty_name"],
-                "match_type": chosen["match_type"],
-                "reason": chosen["reason"],
-                "projected_load": f"{chosen['projected_load']}/{chosen['max_hours']}",
-            }
-        )
+        for bp in block_periods:
+            substitutions.append(
+                {
+                    "period": bp,
+                    "course": slot["course"],
+                    "course_code": slot["course_code"],
+                    "section": slot["section"],
+                    "substitute_id": chosen["faculty_id"],
+                    "substitute_name": chosen["faculty_name"],
+                    "match_type": chosen["match_type"],
+                    "reason": chosen["reason"] + (
+                        " (lab block: P5-P6 atomic)" if is_lab_block else ""
+                    ),
+                    "projected_load": f"{chosen['projected_load']}/{chosen['max_hours']}",
+                }
+            )
+        handled_periods.update(block_periods)
 
     return {
         "absent_faculty": faculty_id,

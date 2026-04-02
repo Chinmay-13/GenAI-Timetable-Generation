@@ -1,0 +1,21 @@
+{
+  "operation_id": "4cda3ed3",
+  "timestamp_utc": "2026-04-01T20:40:13.977524+00:00",
+  "timestamp_local": "2026-04-02T02:10:13.977559",
+  "action": "substitute",
+  "absent_faculty": "F03",
+  "section_id": "B",
+  "day": "Monday",
+  "period_range": [
+    2,
+    2
+  ],
+  "substitute_faculty": "F16",
+  "reasoning_chain": [
+    "Demo: covering for absent F03"
+  ],
+  "pre_state": "Day,P1,P2,P3,P4,P5,P6\r\nMonday,DDCO (KR),WT (SN),MATH (AS),AFLL (LP),DDCO LAB,DDCO LAB\r\n",
+  "post_state": "Day,P1,P2,P3,P4,P5,P6\r\nMonday,DDCO (KR),WT (SN)\u2192F16,MATH (AS),AFLL (LP),DDCO LAB,DDCO LAB\r\n",
+  "commit_result": "SUCCESS",
+  "backup_path": "C:\\admin\\3rd year\\sem6\\E3_genai\\timetable_system\\outputs\\agent_ops\\backups\\20260401T204013Z-section_B_timetable.csv"
+}
