@@ -1,6 +1,6 @@
-Day,P1,P2,P3,P4,P5,P6,P7,P8,P9
-Monday,MATH (D),MATH (E),----,MATH (F),MATH (E),----,----,----,----
-Tuesday,MATH (D),MATH (E),MATH (F),----,----,----,----,----,----
-Wednesday,MATH (E),----,----,----,MATH (D),MATH (F),----,----,----
-Thursday,----,MATH (D),----,----,MATH (F),MATH (E),----,----,----
-Friday,MATH (F),MATH (D),MATH (F),MATH (D),MATH (E),----,----,----,----
+Day,P1,P2,P3,P4,P5,P6
+Monday,MATH (F),MATH (E),MATH (D),----,----,----
+Tuesday,MATH (E),MATH (F),MATH (D),----,----,----
+Wednesday,MATH (D),MATH (F),MATH (E),----,----,----
+Thursday,MATH (E),MATH (F),MATH (D),----,----,----
+Friday,----,----,----,----,----,----

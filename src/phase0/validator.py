@@ -1,16 +1,15 @@
 import pandas as pd
+from pathlib import Path
+import sys
 
-DATA_DIR = "data"
+_VALIDATOR_ROOT = Path(__file__).resolve().parents[2]
+if str(_VALIDATOR_ROOT) not in sys.path:
+    sys.path.insert(0, str(_VALIDATOR_ROOT))
 
-# How many sections exist in this semester
-TOTAL_SECTIONS = 12
+from config import DATA_DIR as CONFIG_DATA_DIR, TOTAL_SECTIONS, MAX_HOURS, LAB_BLOCK_LENGTH, get_theory_periods, get_lab_sessions
 
-# Max weekly teaching hours by designation
-MAX_HOURS = {
-    "Prof":       12,
-    "Asso Prof":  16,
-    "Asst Prof":  20,
-}
+DATA_DIR = str(CONFIG_DATA_DIR)
+
 
 def validate(courses, faculty, assignments):
     print("\n=== PHASE 0: CAPACITY VALIDATION ===\n")
@@ -63,6 +62,14 @@ def validate(courses, faculty, assignments):
 
     # ── Check 4: Weekly hour load per faculty ─────────────────────────────
     print("\n[ Check 4 ] Weekly hour load per faculty")
+    course_lookup = courses.set_index("course_code").to_dict("index")
+    try:
+        lab_allotment = pd.read_csv(f"{DATA_DIR}/lab_allotment.csv")
+    except FileNotFoundError:
+        lab_allotment = pd.DataFrame(
+            columns=["day", "course_code", "section_pair", "room", "faculty_id"]
+        )
+
     for _, frow in faculty.iterrows():
         fid  = frow["faculty_id"]
         name = frow["name"]
@@ -72,9 +79,16 @@ def validate(courses, faculty, assignments):
         fassign = assignments[assignments["faculty_id"] == fid]
         total_hours = 0
         for _, arow in fassign.iterrows():
-            course = courses[courses["course_code"] == arow["course_code"]].iloc[0]
+            course = course_lookup[arow["course_code"]]
             n_sections = len([s.strip() for s in arow["sections_handled"].split(",")])
-            total_hours += (course["theory_hours"] + course["lab_hours"]) * n_sections
+            total_hours += get_theory_periods(course["credits"], course["has_lab"]) * n_sections
+
+        faculty_labs = lab_allotment[lab_allotment["faculty_id"] == fid]
+        for _, lab_row in faculty_labs.iterrows():
+            course = course_lookup.get(lab_row["course_code"])
+            if course is None:
+                continue
+            total_hours += get_lab_sessions(course["credits"], course["has_lab"]) * LAB_BLOCK_LENGTH
 
         status = "OK" if total_hours <= max_h else "OVERLOADED"
         if status != "OK":

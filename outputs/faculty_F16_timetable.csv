@@ -1,6 +1,6 @@
-Day,P1,P2,P3,P4,P5,P6,P7,P8,P9
-Monday,MATH (H),MATH (I),MATH (G),AFLL (B),----,MATH (I),----,----,----
-Tuesday,AFLL (B),MATH (G),----,----,MATH (H),MATH (I),----,----,----
-Wednesday,----,AFLL (B),MATH (G),MATH (I),----,MATH (H),----,----,----
-Thursday,MATH (G),AFLL (B),MATH (G),MATH (I),AFLL (B),MATH (H),----,----,----
-Friday,MATH (H),AFLL (B),----,MATH (H),MATH (G),MATH (I),----,----,----
+Day,P1,P2,P3,P4,P5,P6
+Monday,----,----,----,AFLL (B),----,----
+Tuesday,AFLL (B),MATH (G),MATH (H),MATH (I),----,----
+Wednesday,MATH (I),MATH (G),MATH (H),AFLL (B),----,----
+Thursday,AFLL (B),MATH (I),MATH (H),MATH (G),----,----
+Friday,MATH (G),----,MATH (H),MATH (I),----,----

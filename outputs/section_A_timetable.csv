@@ -1,6 +1,6 @@
-Day,P1,P2,P3,P4,P5,P6,P7,P8,P9
-Monday,DSA (PJ),WT (SN),DDCO (KR),AFLL (KR),DSA (PJ),MATH (AS),DDCO LAB,DDCO LAB,DDCO LAB
-Tuesday,MATH (AS),WT (SN),AFLL (KR),DSA (PJ),DDCO (KR),MATH (AS),----,----,----
-Wednesday,DDCO (KR),AFLL (KR),MATH (AS),AFLL (KR),DSA (PJ),WT (SN),----,----,----
-Thursday,WT (SN),DDCO (KR),DSA (PJ),AFLL (KR),WT (SN),MATH (AS),DSA LAB,DSA LAB,DSA LAB
-Friday,WT (SN),DDCO (KR),DSA (PJ),AFLL (KR),DDCO (KR),MATH (AS),----,----,----
+Day,P1,P2,P3,P4,P5,P6
+Monday,MATH (AS)→F16,DDCO (KR)→F20→F16,WT (SN)→F20→F16,AFLL (KR)→F20,DDCO LAB,DDCO LAB
+Tuesday,DDCO (KR),MATH (AS),DSA (PJ),AFLL (KR),----,----
+Wednesday,DDCO (KR),DSA (PJ),AFLL (KR),WT (SN),----→F16,----→F16
+Thursday,AFLL (KR),WT (SN),MATH (AS),DSA (PJ),DSA LAB,DSA LAB
+Friday,DSA (PJ),WT (SN),MATH (AS),DDCO (KR),----,----

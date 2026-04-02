@@ -1,6 +1,6 @@
-Day,P1,P2,P3,P4,P5,P6,P7,P8,P9
-Monday,----,WT (A),WT (B),----,WT (C),WT (B),----,----,----
-Tuesday,----,WT (A),WT (B),WT (C),----,----,----,----,----
-Wednesday,----,----,----,WT (C),WT (B),WT (A),----,----,----
-Thursday,WT (A),----,WT (B),WT (C),WT (A),----,----,----,----
-Friday,WT (A),WT (C),----,WT (B),----,WT (C),----,----,----
+Day,P1,P2,P3,P4,P5,P6
+Monday,----,WT (B),WT (A),WT (C),----,----
+Tuesday,----,----,----,----,----,----
+Wednesday,----,WT (C),WT (B),WT (A),----,----
+Thursday,----,WT (A),WT (C),WT (B),----,----
+Friday,WT (B),WT (A),WT (C),----,----,----
