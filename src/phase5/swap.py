@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
-from typing import Dict
+from typing import Dict, Optional
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -143,6 +143,58 @@ def print_swap_plan(result: Dict[str, object]) -> None:
 
     print()
     print("═" * 50)
+
+
+def commit_swap(swap_result: Dict[str, object], reason: str = "") -> dict:
+    """
+    Commit a confirmed load-swap to the timetable.
+
+    Accepts the dict returned by ``find_swap_slot()`` when ``swap_found`` is True
+    and routes the write through ``sync_manager.commit_schedule_change()`` so that
+    the section CSV, faculty CSVs, summary_report.txt, and the RAG index are all
+    updated atomically.
+
+    Parameters
+    ----------
+    swap_result : dict  (from find_swap_slot, must have swap_found=True)
+    reason      : str   optional free-text reason for the log
+
+    Returns
+    -------
+    dict  as returned by sync_manager.commit_schedule_change()
+
+    Raises
+    ------
+    ValueError   if swap_result has swap_found=False or is missing required keys.
+    RuntimeError on write failure (all changes already rolled back by sync_manager).
+    """
+    if not swap_result.get("swap_found"):
+        raise ValueError("commit_swap: nothing to commit — swap_found is False.")
+
+    required = {"swap_day", "swap_period", "section", "faculty_a", "faculty_b"}
+    missing = required - swap_result.keys()
+    if missing:
+        raise ValueError(f"commit_swap: swap_result missing keys {missing}")
+
+    # Parse period string "P3" → int 3
+    period_str: str = str(swap_result["swap_period"])  # e.g. "P3"
+    if period_str.upper().startswith("P"):
+        period_int = int(period_str[1:])
+    else:
+        period_int = int(period_str)
+
+    from src.phase5.sync_manager import commit_schedule_change
+    return commit_schedule_change({
+        "section":          str(swap_result["section"]),
+        "day":              str(swap_result["swap_day"]),
+        "period_start":     period_int,
+        "period_end":       period_int,        # swaps are single-period
+        # faculty_b was covering the slot; faculty_a reclaims it
+        "original_faculty": str(swap_result["faculty_b"]),
+        "new_faculty":      str(swap_result["faculty_a"]),
+        "change_type":      "swap",
+        "reason":           reason or swap_result.get("result", ""),
+    })
 
 
 def main() -> None:

@@ -1,7 +1,6 @@
 pandas>=2.0
 ortools>=9.0
 python-dotenv>=1.0
-google-generativeai>=0.8
 streamlit>=1.25
 altair>=4.2
 sentence-transformers>=2.0
@@ -10,4 +9,4 @@ pytest>=7.0
 openpyxl>=3.0
 networkx>=3.0
 langchain>=0.1
-langchain-google-genai>=0.0.6
+langchain-groq>=0.1

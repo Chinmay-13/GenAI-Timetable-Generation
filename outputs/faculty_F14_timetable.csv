@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,DSA (J),DSA (I),AFLL (K),AFLL (L),----,----
-Tuesday,DSA (J),DSA (I),AFLL (K),AFLL (L),----,----
-Wednesday,DSA (J),DSA (I),----,----,----,----
-Thursday,DSA (I),DSA (J),AFLL (K),AFLL (L),DSA LAB (F+I),DSA LAB (F+I)
-Friday,----,----,AFLL (K),AFLL (L),----,----
+Monday,----,----,DSA (I),DSA (J),----,----
+Tuesday,DSA (I),DSA (J),AFLL (K),AFLL (L),----,----
+Wednesday,DSA (J),DSA (I),AFLL (K),AFLL (L),----,----
+Thursday,AFLL (L),AFLL (K),----,----,DSA LAB (F+I),DSA LAB (F+I)
+Friday,AFLL (K),AFLL (L),DSA (J),DSA (I),----,----

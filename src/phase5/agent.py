@@ -15,7 +15,7 @@ The agent has READ and WRITE capabilities:
     - rollback_last_operation : rollback a committed substitution
     - generate_session_summary: generate session summary report
 
-Falls back gracefully if GEMINI_API_KEY is missing.
+Falls back gracefully if GROQ_API_KEY is missing.
 
 Usage:
   python src/phase5/agent.py
@@ -90,6 +90,42 @@ def _atomic_write_csv(path: Path, df: pd.DataFrame):
         df.to_csv(tmp, index=False)
         tmp_path = tmp.name
     os.replace(tmp_path, str(path))
+
+
+_DAY_ALIASES = {
+    "mon": "Monday",
+    "monday": "Monday",
+    "tue": "Tuesday",
+    "tues": "Tuesday",
+    "tuesday": "Tuesday",
+    "wed": "Wednesday",
+    "wednesday": "Wednesday",
+    "thu": "Thursday",
+    "thur": "Thursday",
+    "thurs": "Thursday",
+    "thursday": "Thursday",
+    "fri": "Friday",
+    "friday": "Friday",
+}
+
+
+def _normalize_day_input(day_raw: str) -> str | None:
+    return _DAY_ALIASES.get(str(day_raw).strip().lower())
+
+
+def _normalize_period_input(period_raw, *, max_period: int = 4) -> str | None:
+    period_clean = str(period_raw).strip().upper().lstrip("P")
+    try:
+        period_int = int(period_clean)
+    except ValueError:
+        return None
+    if period_int < 1 or period_int > max_period:
+        return None
+    return f"P{period_int}"
+
+
+def _load_rooms_inventory() -> pd.DataFrame:
+    return pd.read_csv(_AGENT_ROOT / "data" / "rooms.csv")
 
 
 # ── LangChain Tools ──────────────────────────────────────────────────────────
@@ -199,6 +235,7 @@ def _make_tools():
                        substitute_faculty,reason"
         Example: "A,Monday,5,6,F03,F07,Lab coverage for DDCO"
         Validates substitute availability before writing.
+        Updates section CSV, faculty CSVs, summary report, and RAG index.
         Creates backup and logs the operation.
         """
         parts = [p.strip() for p in input_str.split(",", 6)]
@@ -207,58 +244,29 @@ def _make_tools():
         section, day, p_start, p_end, absent, substitute, reason = parts
         p_start, p_end = int(p_start), int(p_end)
 
-        # Validate
+        # Validate substitute availability
         if not _is_faculty_free(substitute, day, p_start, p_end):
             return (
                 f"Cannot commit: {substitute} is not free on {day} "
                 f"P{p_start}-P{p_end}."
             )
 
-        # Backup
-        backup = backup_timetable(section)
-
-        # Read current section timetable
-        path = resolve_output_path(
-            f"section_{section}_timetable.csv"
-        )
-        df = pd.read_csv(path)
-        row_mask = df["Day"] == day
-        if not row_mask.any():
-            return f"Day {day} not found in section {section} timetable."
-
-        pre_state = df[row_mask].to_csv(index=False)
-
-        # Apply substitution
-        for p in range(p_start, p_end + 1):
-            col = f"P{p}"
-            if col in df.columns:
-                current = str(df.loc[row_mask, col].values[0])
-                df.loc[row_mask, col] = f"{current}→{substitute}"
-
-        post_state = df[row_mask].to_csv(index=False)
-
-        # Write atomically
-        _atomic_write_csv(path, df)
-
-        # Log
-        log_path = log_operation(
-            action="substitute",
-            absent_faculty=absent,
-            section_id=section,
-            day=day,
-            period_range=(p_start, p_end),
-            substitute_faculty=substitute,
-            reasoning_chain=[reason],
-            pre_state=pre_state,
-            post_state=post_state,
-            commit_result="SUCCESS",
-            backup_path=str(backup),
-        )
-
-        return (
-            f"Committed: {substitute} covers section {section} on {day} "
-            f"P{p_start}-P{p_end}. Log: {log_path.name}"
-        )
+        # Delegate ALL writes to sync_manager
+        try:
+            from src.phase5.sync_manager import commit_schedule_change
+            result = commit_schedule_change({
+                "section":          section,
+                "day":              day,
+                "period_start":     p_start,
+                "period_end":       p_end,
+                "original_faculty": absent,
+                "new_faculty":      substitute,
+                "change_type":      "substitute",
+                "reason":           reason,
+            })
+            return result["message"]
+        except Exception as exc:
+            return f"Commit failed (rolled back): {exc}"
 
     @tool
     def list_agent_ops(input_str: str) -> str:
@@ -372,6 +380,556 @@ def _make_tools():
 
         return f"{fid} on {day}:\n" + "\n".join(periods)
 
+    @tool
+    def find_free_rooms(input_str: str) -> str:
+        """
+        Find available (unoccupied) classrooms for a given day and period.
+        Input format: "day,period[,capacity_needed]"
+        Examples:
+          "Monday,3"        → all free rooms on Monday P3
+          "Tuesday,2,60"    → free rooms on Tuesday P2 with capacity >= 60
+        Returns a list of free rooms with their capacities.
+        """
+        parts = [p.strip() for p in input_str.split(",")]
+        if len(parts) < 2:
+            return "Input must be 'day,period' or 'day,period,capacity_needed'"
+
+        day = parts[0]
+        # Accept "P3" or "3"
+        period_raw = parts[1].upper().lstrip("P")
+        try:
+            period = int(period_raw)
+        except ValueError:
+            return f"Invalid period '{parts[1]}'. Use a number or 'P<n>'."
+
+        capacity_needed = 0
+        if len(parts) >= 3:
+            try:
+                capacity_needed = int(parts[2])
+            except ValueError:
+                return f"Invalid capacity '{parts[2]}'. Must be an integer."
+
+        # Load room assignment CSV
+        from config import OUTPUT_DIR, resolve_output_path
+        csv_path = resolve_output_path("room_assignment.csv")
+        if not csv_path.exists():
+            return (
+                "room_assignment.csv not found. "
+                "Run python run_all.py to generate room assignments first."
+            )
+
+        try:
+            import pandas as _pd
+            df = _pd.read_csv(csv_path)
+        except Exception as exc:
+            return f"Error reading room_assignment.csv: {exc}"
+
+        # Rooms occupied in this slot
+        slot_rows = df[
+            (df["Day"].str.lower() == day.lower()) &
+            (df["Period"] == f"P{period}")
+        ]
+        occupied = set(slot_rows["Room"].tolist())
+        occupied.discard("ROOM_UNASSIGNED")
+
+        # All classrooms from rooms.csv
+        rooms_path = OUTPUT_DIR.parent / "data" / "rooms.csv"
+        if not rooms_path.exists():
+            rooms_path = resolve_output_path("..") / "data" / "rooms.csv"
+        try:
+            rooms_df = _pd.read_csv(
+                Path(__file__).resolve().parents[2] / "data" / "rooms.csv"
+            )
+        except Exception as exc:
+            return f"Error reading rooms.csv: {exc}"
+
+        classrooms = rooms_df[
+            rooms_df["room_type"].str.upper().isin(["CLASSROOM", "LECTURE_HALL"])
+        ]
+        if capacity_needed > 0:
+            classrooms = classrooms[classrooms["capacity"] >= capacity_needed]
+
+        free = classrooms[~classrooms["room_name"].isin(occupied)]
+
+        if free.empty:
+            return (
+                f"No free classrooms on {day} P{period}"
+                + (f" with capacity >= {capacity_needed}" if capacity_needed else "")
+                + "."
+            )
+
+        lines = [f"Free classrooms on {day} P{period}:"]
+        for _, row in free.iterrows():
+            lines.append(
+                f"  {row['room_name']} (capacity: {row['capacity']}, "
+                f"floor: {row['floor']})"
+            )
+        return "\n".join(lines)
+
+    # ── TOOL 7 — get_faculty_workload ────────────────────────────────────────
+    @tool
+    def get_faculty_workload(input_str: str) -> str:
+        """
+        Get total workload for a faculty member this week.
+        Input: faculty_id (e.g. "F04") or part of their name (e.g. "Sharma")
+        Returns: total hours, day-by-day breakdown, courses taught, and
+                 whether they are over their weekly cap.
+        """
+        query = input_str.strip().upper()
+        import pandas as _pd
+        from config import DATA_DIR as _DATA_DIR, MAX_HOURS as _MAX_HOURS
+        from config import resolve_output_path as _rop
+
+        # Resolve faculty_id from id or partial name
+        try:
+            fac_df = _pd.read_csv(Path(__file__).resolve().parents[2] / "data" / "faculty.csv")
+        except Exception as exc:
+            return f"Cannot load faculty.csv: {exc}"
+
+        match = fac_df[fac_df["faculty_id"].str.upper() == query]
+        if match.empty:
+            match = fac_df[fac_df["name"].str.upper().str.contains(query, na=False)]
+        if match.empty:
+            return f"No faculty found matching '{input_str}'."
+
+        row = match.iloc[0]
+        fid        = str(row["faculty_id"]).strip()
+        name       = str(row["name"]).strip()
+        designation = str(row["designation"]).strip()
+        max_h      = _MAX_HOURS.get(designation, 16)
+
+        fac_path = _rop(f"faculty_{fid}_timetable.csv")
+        if not fac_path.exists():
+            return f"Timetable not found for {fid}. Run run_all.py first."
+
+        df = _pd.read_csv(fac_path)
+        period_cols = [f"P{p}" for p in range(1, 7)]
+        DAYS_ORDER  = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+
+        total = 0
+        day_breakdown = []
+        courses_seen: set = set()
+
+        for _, day_row in df.iterrows():
+            day = str(day_row["Day"]).strip()
+            day_slots = []
+            for col in period_cols:
+                cell = str(day_row.get(col, "----")).strip()
+                if cell not in ("----", "", "nan"):
+                    total += 1
+                    day_slots.append(f"{col}: {cell}")
+                    # Extract course short name before " ("
+                    course_part = cell.split(" (")[0].strip()
+                    courses_seen.add(course_part)
+            if day_slots:
+                day_breakdown.append(f"  {day}: {', '.join(day_slots)}")
+
+        status = "⚠ OVERLOAD" if total > max_h else "✓ Within limit"
+        lines = [
+            f"Faculty: {name} ({fid}) — {designation}",
+            f"Weekly hours: {total} / {max_h} max  [{status}]",
+            f"Courses taught: {', '.join(sorted(courses_seen)) or 'None'}",
+            "Schedule:",
+        ] + (day_breakdown if day_breakdown else ["  (no classes scheduled)"])
+        return "\n".join(lines)
+
+    # ── TOOL 8 — get_free_faculty ────────────────────────────────────────────
+    @tool
+    def get_free_faculty(input_str: str) -> str:
+        """
+        Find all faculty with no class in a given day + period slot.
+        Input format: "day,period"  e.g. "Monday,3" or "Tuesday,P2"
+        Returns: list of free faculty with their designation.
+        """
+        parts = [p.strip() for p in input_str.split(",", 1)]
+        if len(parts) != 2:
+            return "Input must be 'day,period' e.g. 'Monday,3'"
+        day_raw, period_raw = parts
+        period_str = period_raw.upper().lstrip("P")
+        try:
+            period_int = int(period_str)
+        except ValueError:
+            return f"Invalid period '{period_raw}'."
+        col = f"P{period_int}"
+
+        import pandas as _pd
+        fac_path = Path(__file__).resolve().parents[2] / "data" / "faculty.csv"
+        try:
+            fac_df = _pd.read_csv(fac_path)
+        except Exception as exc:
+            return f"Cannot load faculty.csv: {exc}"
+
+        free_list = []
+        for _, row in fac_df.iterrows():
+            fid  = str(row["faculty_id"]).strip()
+            name = str(row["name"]).strip()
+            desig = str(row["designation"]).strip()
+            tpath = resolve_output_path(f"faculty_{fid}_timetable.csv")
+            if not tpath.exists():
+                continue
+            try:
+                tdf = _pd.read_csv(tpath)
+                day_row = tdf[tdf["Day"].str.lower() == day_raw.lower()]
+                if day_row.empty:
+                    continue
+                cell = str(day_row.iloc[0].get(col, "----")).strip()
+                if cell in ("----", "", "nan"):
+                    free_list.append(f"  {fid} — {name} ({desig})")
+            except Exception:
+                continue
+
+        if not free_list:
+            return f"All faculty are busy on {day_raw} P{period_int}."
+        header = f"Free faculty on {day_raw} P{period_int} ({len(free_list)} total):"
+        return "\n".join([header] + free_list)
+
+    # ── TOOL 9 — get_room_availability ──────────────────────────────────────
+    @tool
+    def get_room_availability(day: str, period: str) -> str:
+        """
+        Find which rooms are free and which are occupied in a given theory slot.
+        Inputs:
+          day: accepts Tuesday, Tue, TUE, tue, tuesday
+          period: accepts P2, p2, 2, or "2"
+
+        Reads outputs/room_assignment.csv and data/rooms.csv.
+        Returns free rooms with type and capacity, plus occupied rooms by section.
+        """
+        import pandas as _pd
+
+        normalized_day = _normalize_day_input(day)
+        if normalized_day is None:
+            return (
+                f"Unrecognized day '{day}'. "
+                "Use Monday, Tuesday, Wednesday, Thursday, or Friday "
+                "(full name or common abbreviation)."
+            )
+
+        period_label = _normalize_period_input(period, max_period=4)
+        if period_label is None:
+            return (
+                f"Unrecognized period '{period}'. "
+                "Use P1, P2, P3, P4 or just 1, 2, 3, 4. "
+                "Room assignment data is only generated for theory periods."
+            )
+
+        ra_path = resolve_output_path("room_assignment.csv")
+        if not ra_path.exists():
+            return "Room assignment data not found. Please run the pipeline first with: python run_all.py"
+
+        try:
+            ra_df = _pd.read_csv(ra_path)
+        except Exception as exc:
+            return f"Error reading outputs/room_assignment.csv: {exc}"
+
+        slot_df = ra_df[
+            (ra_df["Day"].astype(str).str.strip().str.lower() == normalized_day.lower()) &
+            (ra_df["Period"].astype(str).str.strip().str.upper() == period_label)
+        ].copy()
+
+        if slot_df.empty:
+            return (
+                f"No room assignment rows found for {normalized_day} {period_label}. "
+                "Please regenerate outputs with: python run_all.py"
+            )
+
+        try:
+            rooms_df = _load_rooms_inventory()
+        except Exception as exc:
+            return f"Error reading data/rooms.csv: {exc}"
+
+        rooms_df = rooms_df.copy()
+        rooms_df["room_name"] = rooms_df["room_name"].astype(str).str.strip()
+        rooms_df["room_type"] = rooms_df["room_type"].astype(str).str.strip()
+
+        occupied_rows = slot_df[
+            slot_df["Room"].astype(str).str.strip().ne("ROOM_UNASSIGNED")
+        ].copy()
+        occupied_rows["Room"] = occupied_rows["Room"].astype(str).str.strip()
+        occupied_room_names = set(occupied_rows["Room"].tolist())
+
+        free_rooms = rooms_df[
+            ~rooms_df["room_name"].isin(occupied_room_names)
+        ].sort_values(["room_type", "capacity", "room_name"], ascending=[True, False, True])
+
+        occupied_sections = sorted(slot_df["Section"].astype(str).str.strip().unique().tolist())
+        unassigned_rows = slot_df[
+            slot_df["Room"].astype(str).str.strip().eq("ROOM_UNASSIGNED")
+        ]
+
+        lines = [
+            f"Room availability for {normalized_day} {period_label}:",
+            f"Total rooms in inventory: {len(rooms_df)}",
+            f"Sections with classes: {len(occupied_sections)} ({', '.join(occupied_sections)})",
+            f"Occupied rooms: {len(occupied_room_names)}",
+            f"Free rooms: {len(free_rooms)}",
+        ]
+
+        if not unassigned_rows.empty:
+            lines.append(
+                "Unassigned sections: "
+                + ", ".join(unassigned_rows["Section"].astype(str).str.strip().tolist())
+            )
+
+        lines.append("")
+        lines.append(f"FREE ROOMS ({len(free_rooms)}):")
+        for _, room_row in free_rooms.iterrows():
+            lines.append(
+                f"  - {room_row['room_name']} | type={room_row['room_type']} | "
+                f"capacity={room_row['capacity']}"
+            )
+
+        lines.append("")
+        lines.append(f"OCCUPIED ROOMS ({len(occupied_room_names)}):")
+        if occupied_rows.empty:
+            lines.append("  - None")
+        else:
+            for room_name, room_group in occupied_rows.sort_values(["Room", "Section"]).groupby("Room"):
+                sections_using_room = ", ".join(
+                    f"Section {row['Section']} ({row['Course']}, {row['Faculty']})"
+                    for _, row in room_group.iterrows()
+                )
+                lines.append(f"  - {room_name}: {sections_using_room}")
+
+        return "\n".join(lines)
+
+    # ── TOOL 10 — detect_schedule_conflicts ──────────────────────────────────
+    @tool
+    def detect_schedule_conflicts(input_str: str) -> str:
+        """
+        Scan all section and faculty CSVs for scheduling conflicts.
+        Input: any string (ignored) — just pass an empty string or "check".
+        Detects:
+          • Same faculty assigned to two sections in the same slot
+          • Same room assigned to two sections in the same slot
+        Returns a structured conflict report.
+        """
+        import pandas as _pd
+        from config import SECTIONS as _SECTIONS, DAYS as _DAYS
+
+        period_cols = [f"P{p}" for p in range(1, 7)]
+        # map (day, period, faculty_initials) -> [section, ...]
+        faculty_slot: dict = {}
+        # map (day, period, room_name) -> [section, ...]
+        room_slot: dict = {}
+
+        for section in _SECTIONS:
+            sp = resolve_output_path(f"section_{section}_timetable.csv")
+            if not sp.exists():
+                continue
+            try:
+                df = _pd.read_csv(sp)
+            except Exception:
+                continue
+            for _, row in df.iterrows():
+                day = str(row["Day"]).strip()
+                for col in period_cols:
+                    cell = str(row.get(col, "----")).strip()
+                    if cell in ("----", "", "nan") or "LAB" in cell.upper():
+                        continue
+                    # Extract initials "DDCO (RP)" → "RP"
+                    import re as _re
+                    m = _re.search(r"\(([^)]+)\)", cell)
+                    if m:
+                        key = (day, col, m.group(1).strip())
+                        faculty_slot.setdefault(key, []).append(section)
+
+        # Check room_assignment.csv for room conflicts
+        ra_path = resolve_output_path("room_assignment.csv")
+        if ra_path.exists():
+            ra_df = _pd.read_csv(ra_path)
+            for _, row in ra_df.iterrows():
+                room = str(row.get("Room", "")).strip()
+                if room in ("ROOM_UNASSIGNED", "", "nan"):
+                    continue
+                key = (str(row["Day"]).strip(), str(row["Period"]).strip(), room)
+                room_slot.setdefault(key, []).append(str(row["Section"]).strip())
+
+        conflicts = []
+        for (day, period, fac_initials), sections in faculty_slot.items():
+            if len(sections) > 1:
+                conflicts.append(
+                    f"FACULTY CONFLICT: {fac_initials} teaching "
+                    f"sections {'+'.join(sections)} simultaneously "
+                    f"on {day} {period}"
+                )
+        for (day, period, room), sections in room_slot.items():
+            if len(sections) > 1:
+                conflicts.append(
+                    f"ROOM CONFLICT: {room} assigned to "
+                    f"sections {'+'.join(sections)} simultaneously "
+                    f"on {day} {period}"
+                )
+
+        if not conflicts:
+            return "✓ No conflicts detected across all section and faculty timetables."
+        header = f"⚠ {len(conflicts)} conflict(s) found:"
+        return "\n".join([header] + [f"  • {c}" for c in conflicts])
+
+    # ── TOOL 11 — get_weekly_stats ───────────────────────────────────────────
+    @tool
+    def get_weekly_stats(input_str: str) -> str:
+        """
+        Return key statistics from the timetable summary report.
+        Input: any string (ignored).
+        Returns: sections count, theory/lab slot totals, soft-constraint
+                 violations, and a faculty load summary.
+        """
+        report_path = resolve_output_path("summary_report.txt")
+        if not report_path.exists():
+            return "summary_report.txt not found. Run run_all.py first."
+        text = report_path.read_text(encoding="utf-8")
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+
+        def _grab(prefix):
+            for l in lines:
+                if l.startswith(prefix):
+                    return l
+            return None
+
+        highlights = []
+        for prefix in [
+            "Total sections", "Total theory", "Total lab",
+            "same_subject_same_day", "back_to_back_same_subject",
+        ]:
+            found = _grab(prefix)
+            if found:
+                highlights.append(f"  {found}")
+
+        # Faculty load summary
+        overloaded = [l for l in lines if "OVERLOAD" in l]
+        ok_count   = sum(1 for l in lines if "| OK" in l)
+        load_summary = [
+            f"  Faculty OK: {ok_count}",
+            f"  Faculty OVERLOAD: {len(overloaded)}",
+        ]
+        if overloaded:
+            load_summary.append("  Overloaded faculty:")
+            for ol in overloaded:
+                parts = ol.split(" | ")
+                if len(parts) >= 2:
+                    load_summary.append(f"    → {parts[0].strip()} — {parts[1].strip()}")
+
+        return "\n".join(
+            ["=== Weekly Timetable Stats ==="]
+            + highlights
+            + ["Faculty load:"]
+            + load_summary
+        )
+
+    # ── TOOL 12 — simulate_substitute ───────────────────────────────────────
+    @tool
+    def simulate_substitute(input_str: str) -> str:
+        """
+        Preview the top substitute candidates for a faculty on a given day/period.
+        DOES NOT commit any changes — simulation only.
+        Input format: "faculty_id,day,period"  e.g. "F04,Monday,3"
+        Returns: top 3 candidates with match reasons and load info.
+        Clearly states this is a preview — use commit_substitute to apply.
+        """
+        parts = [p.strip() for p in input_str.split(",", 2)]
+        if len(parts) < 3:
+            return "Input must be 'faculty_id,day,period' e.g. 'F04,Monday,3'"
+        fid, day_raw, period_raw = parts
+        period_str = period_raw.upper().lstrip("P")
+        try:
+            period_int = int(period_str)
+        except ValueError:
+            return f"Invalid period '{period_raw}'."
+        period_col = f"P{period_int}"
+
+        try:
+            from src.phase5.substitute import (
+                find_substitute as _find_sub,
+                _rank_candidates, _collect_absent_slots,
+                get_faculty_day_row, faculty_lookup, normalize_day,
+                get_lab_block_periods, parse_timetable_cell,
+            )
+        except ImportError as exc:
+            return f"Cannot import substitute module: {exc}"
+
+        try:
+            day = normalize_day(day_raw)
+            lookup = faculty_lookup()
+            fid_upper = fid.strip().upper()
+            if fid_upper not in lookup:
+                return f"Unknown faculty_id: {fid_upper}"
+
+            absent_info = lookup[fid_upper]
+            absent_designation = absent_info["designation"]
+
+            # Get the slot info for the requested period
+            day_row = get_faculty_day_row(fid_upper, day)
+            cell = str(day_row.get(period_col, "----")).strip()
+            if cell in ("----", "", "nan"):
+                return (
+                    f"{fid_upper} has no class on {day} {period_col}. "
+                    "Nothing to simulate."
+                )
+
+            slot_info = parse_timetable_cell(cell)
+            if slot_info is None:
+                return f"Could not parse slot '{cell}' for {fid_upper} on {day} {period_col}."
+
+            # Expand to lab block if needed
+            block = get_lab_block_periods(period_col)
+            ranked = _rank_candidates(
+                absent_faculty_id=fid_upper,
+                absent_designation=absent_designation,
+                day=day,
+                period=period_col,
+                slot_info=slot_info,
+            )
+
+            if len(block) > 1:
+                # Lab block: filter to candidates free for all periods
+                filtered = []
+                for cand in ranked:
+                    all_free = all(
+                        str(get_faculty_day_row(cand["faculty_id"], day).get(bp, "----")).strip()
+                        in ("----", "", "nan")
+                        for bp in block
+                    )
+                    if all_free:
+                        filtered.append(cand)
+                ranked = filtered
+
+            top3 = ranked[:3]
+            if not top3:
+                return (
+                    f"No substitute candidates found for {fid_upper} on "
+                    f"{day} {period_col} ({slot_info['course']}).\n"
+                    "All faculty are either busy or at load cap."
+                )
+
+            lines = [
+                f"[SIMULATION] Top substitute candidates for {absent_info['name']} "
+                f"({fid_upper}) on {day} {period_col} — {slot_info['course']}",
+                "",
+            ]
+            for i, c in enumerate(top3, 1):
+                lines.append(
+                    f"  #{i} {c['faculty_id']} — {c['faculty_name']} "
+                    f"({c['designation']})"
+                )
+                lines.append(
+                    f"     Match: {c['match_type']}  |  "
+                    f"Load after: {c['projected_load']}/{c['max_hours']}h"
+                )
+                lines.append(f"     Reason: {c['reason']}")
+                lines.append("")
+
+            lines.append(
+                "⚠ This is a SIMULATION only — no changes have been made.\n"
+                "  To apply, use: commit_substitute("
+                f"{slot_info.get('section','?')},{day},{period_int},{period_int},"
+                f"{fid_upper},<chosen_id>,<reason>)"
+            )
+            return "\n".join(lines)
+
+        except Exception as exc:
+            return f"Simulation error: {exc}"
+
     return [
         get_section_timetable,
         get_faculty_schedule,
@@ -383,6 +941,13 @@ def _make_tools():
         rollback_last_operation,
         generate_session_summary,
         get_absent_periods,
+        find_free_rooms,
+        get_faculty_workload,
+        get_free_faculty,
+        get_room_availability,
+        detect_schedule_conflicts,
+        get_weekly_stats,
+        simulate_substitute,
     ]
 
 
@@ -400,16 +965,51 @@ def _get_agent_system_prompt() -> str:
         base = "University timetable assistant. CSE dept, 12 sections A-L."
 
     return base + """
-You are an autonomous timetable agent with read and write tools.
-When a teacher is absent, follow these steps IN ORDER:
-1. Call get_absent_periods(faculty_id,day) to find their actual schedule.
-2. Call find_substitute(faculty_id,day) to find available substitutes.
-3. Tell the user the proposed assignment with exact period numbers.
-4. Call commit_substitute only when confirmed.
-5. Call generate_session_summary at end of session.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TIMETABLE MANAGEMENT ASSISTANT — SYSTEM RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CRITICAL: Never guess period numbers. Always use get_absent_periods first.
-For lab blocks P5-P6 substitute the full block atomically.
+You are a professional timetable management assistant for CSE department
+college admin staff. You are accurate, concise, and helpful.
+
+WHAT YOU CAN READ:
+  • Section timetables (A–L)  — get_section_timetable
+  • Faculty schedules          — get_faculty_schedule, get_absent_periods
+  • Faculty workload & caps    — get_faculty_workload, get_weekly_stats
+  • Free slots per faculty     — find_free_slots
+  • Free faculty in a slot     — get_free_faculty
+  • Room availability          — get_room_availability, find_free_rooms
+  • Substitute candidates      — find_substitute, simulate_substitute
+  • Schedule conflicts         — detect_schedule_conflicts
+  • Committed operations log   — list_agent_ops
+
+WHAT YOU CAN WRITE (only with user confirmation):
+  • Commit a substitute assignment  — commit_substitute
+  • Undo a committed change         — rollback_last_operation
+  • Save a session summary          — generate_session_summary
+
+WHAT YOU CANNOT DO:
+  • Modify CP-SAT solver constraints or re-run the solver
+  • Add new sections, courses, or faculty to the system
+  • Edit raw CSV files directly
+  • Access data outside the outputs/ and data/ directories
+
+ABSENCE HANDLING — follow this exact order:
+  1. get_absent_periods(faculty_id, day)         → confirm actual periods
+  2. simulate_substitute(faculty_id, day, Pn)    → show top 3 candidates
+  3. Wait for user to select a candidate
+  4. commit_substitute(...)                      → apply after confirmation
+  5. generate_session_summary()                  → log the session
+
+RULES:
+  • NEVER guess period numbers — always call get_absent_periods first
+  • Lab periods P5–P6 must always be substituted as an atomic block
+  • Always state when you are simulating vs committing
+  • If data is unavailable, say so clearly and suggest running run_all.py
+  • When answering questions about room availability, always read from
+    outputs/room_assignment.csv using the get_room_availability tool.
+    Never try to infer room assignments from section timetables — rooms
+    are only known after room allocation is run.
 """
 
 
@@ -452,14 +1052,20 @@ def create_timetable_agent():
             for tc in tool_calls:
                 name = tc["name"]
                 args = tc.get("args", {})
-                arg_val = list(args.values())[0] if args else ""
-                reasoning.append(f"Step {step + 1}: {name}({arg_val})")
+                tool_input = args if args else ""
+                reasoning.append(f"Step {step + 1}: {name}({tool_input})")
 
                 if name in tool_map:
                     try:
-                        result = tool_map[name].invoke(arg_val)
+                        result = tool_map[name].invoke(tool_input)
                     except Exception as e:
-                        result = f"Tool error: {e}"
+                        if args and len(args) == 1:
+                            try:
+                                result = tool_map[name].invoke(next(iter(args.values())))
+                            except Exception as inner_exc:
+                                result = f"Tool error: {inner_exc}"
+                        else:
+                            result = f"Tool error: {e}"
                 else:
                     result = f"Unknown tool: {name}"
 
@@ -517,4 +1123,3 @@ def agent_chat():
 
 if __name__ == "__main__":
     agent_chat()
-

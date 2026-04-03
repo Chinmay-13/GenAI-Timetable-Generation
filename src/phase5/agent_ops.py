@@ -82,16 +82,54 @@ def list_operations(limit: int = 20) -> list:
 
 
 def rollback_operation(operation_id: str) -> str:
-    """Restore the backup timetable for a given operation."""
+    """
+    Restore ALL backed-up artifacts for a given operation_id.
+
+    Handles two backup formats:
+    - New format (sync_manager): backup_path is a directory containing
+      section CSV, faculty CSVs, and summary_report.txt.
+    - Legacy format (old agent.py): backup_path is a single section CSV file.
+
+    After restoring files, triggers a best-effort RAG re-index.
+    """
     _ensure_dirs()
     files = list(AGENT_OPS_DIR.glob(f"*-{operation_id}.json"))
     if not files:
         return f"Operation {operation_id} not found."
+
     record = json.loads(files[0].read_text(encoding="utf-8"))
-    backup = Path(record["backup_path"])
+    backup_path = Path(record["backup_path"])
     section = record["section_id"]
-    target = resolve_output_path(f"section_{section}_timetable.csv")
-    if not backup.exists():
-        return f"Backup file not found: {backup}"
-    shutil.copy2(backup, target)
-    return f"Rolled back section {section} to pre-operation state."
+
+    from config import OUTPUT_DIR
+
+    restored: list[str] = []
+
+    if backup_path.is_dir():
+        # New format: restore every file in the backup directory
+        for bk_file in backup_path.iterdir():
+            dst = OUTPUT_DIR / bk_file.name
+            shutil.copy2(bk_file, dst)
+            restored.append(bk_file.name)
+    elif backup_path.is_file():
+        # Legacy format: a single section CSV backup
+        target = OUTPUT_DIR / f"section_{section}_timetable.csv"
+        shutil.copy2(backup_path, target)
+        restored.append(target.name)
+    else:
+        return f"Backup not found at: {backup_path}"
+
+    # Best-effort RAG re-index
+    rag_status = "not refreshed"
+    try:
+        from src.phase5.rag_indexer import build_index
+        if build_index()[0] is not None:
+            rag_status = "refreshed"
+    except Exception:
+        pass
+
+    return (
+        f"Rolled back operation '{operation_id}'. "
+        f"Restored: {', '.join(restored)}. "
+        f"RAG index {rag_status}."
+    )
