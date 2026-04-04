@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,AFLL (C),----,DDCO (E),DDCO (F),DDCO LAB (C+L),DDCO LAB (C+L)
-Tuesday,AFLL (C),----,----,----,----,----
-Wednesday,AFLL (C),----,DDCO (F),DDCO (E),----,----
-Thursday,AFLL (C),----,DDCO (F),DDCO (E),----,----
-Friday,----,----,DDCO (E),DDCO (F),----,----
+Monday,----,DDCO (E),DDCO (F),----,DDCO LAB (C+L),DDCO LAB (C+L)
+Tuesday,DDCO (E),DDCO (F),----,AFLL (C),----,----
+Wednesday,----,----,----,AFLL (C),----,----
+Thursday,AFLL (C),----,DDCO (E),DDCO (F),----,----
+Friday,DDCO (F),DDCO (E),AFLL (C),----,----,----
