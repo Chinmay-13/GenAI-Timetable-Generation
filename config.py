@@ -1,6 +1,7 @@
 """Central configuration for the timetable system."""
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -8,8 +9,63 @@ load_dotenv()
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+
+# legacy: will be removed after full migration
 DATA_DIR = PROJECT_ROOT / "data"
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
+
+# ── Multi-semester path system ──────────────────────────────────────────
+SEMESTERS_DIR = PROJECT_ROOT / "data"  # parent of all semester folders
+
+
+@dataclass(frozen=True)
+class SemesterPaths:
+    """All resolved paths for a single semester."""
+    sem_id: str
+    data_dir: Path
+    output_dir: Path
+    rag_index_path: Path
+    rag_docs_path: Path
+    chat_memory_path: Path
+    agent_ops_dir: Path
+
+
+def get_sem_paths(sem_id: str) -> SemesterPaths:
+    """
+    Build a SemesterPaths object for the given semester slug.
+
+    Layout:
+        data/<sem_id>/          – input CSVs
+        outputs/<sem_id>/       – generated outputs, RAG artefacts, chat memory
+    """
+    data = PROJECT_ROOT / "data" / sem_id
+    out = PROJECT_ROOT / "outputs" / sem_id
+    return SemesterPaths(
+        sem_id=sem_id,
+        data_dir=data,
+        output_dir=out,
+        rag_index_path=out / "rag_index.faiss",
+        rag_docs_path=out / "rag_docs.json",
+        chat_memory_path=out / "chat_memory.json",
+        agent_ops_dir=out / "agent_ops",
+    )
+
+
+def list_available_semesters() -> list[str]:
+    """
+    Scan SEMESTERS_DIR for subdirectories and return their names as valid
+    sem_id slugs.  Only directories are returned (files are ignored).
+    """
+    if not SEMESTERS_DIR.is_dir():
+        return []
+    return sorted(
+        entry.name
+        for entry in SEMESTERS_DIR.iterdir()
+        if entry.is_dir()
+    )
+
+
+# ── Semester-agnostic constants ─────────────────────────────────────────
 
 DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
 PERIODS = list(range(1, 7))          # P1-P6 (6 periods per day)
@@ -45,6 +101,12 @@ PENALTY_LAB_WINDOW = 50              # penalty for theory in P5-P6 on non-lab da
 PENALTY_BACK_TO_BACK = 5
 PENALTY_SAME_DAY = 3
 REWARD_CONSECUTIVE = 40
+
+# faculty preference penalties (soft — all below PENALTY_LAB_WINDOW=50)
+PENALTY_PREF_TIME = 8        # faculty prefers morning/afternoon; wrong half penalised
+PENALTY_PREF_NO_BTB = 6     # faculty prefers no consecutive periods; each pair penalised
+PENALTY_PREF_FREE_DAY = 10  # faculty wants one free day; each slot on that day penalised
+PENALTY_ROOM_OVERCAP = 4    # room capacity < section size; prefer larger rooms (lowest priority)
 
 # Consecutiveness for same-faculty same-section same-day (Change 2)
 REWARD_CONSECUTIVENESS = 200         # soft reward weight for Phase B fallback
@@ -113,8 +175,15 @@ def get_lab_sessions(credits: int, has_lab: bool) -> int:
     return 0
 
 
-def resolve_output_path(filename: str) -> Path:
-    canonical = OUTPUT_DIR / filename
+def resolve_output_path(filename: str, sem_id: str = None) -> Path:
+    """
+    Resolve the latest-or-canonical output path for *filename*.
+
+    If *sem_id* is given, resolve inside that semester's output dir.
+    Otherwise fall back to the legacy flat OUTPUT_DIR.
+    """
+    base = get_sem_paths(sem_id).output_dir if sem_id else OUTPUT_DIR
+    canonical = base / filename
     latest = canonical.with_name(f"{canonical.stem}.latest{canonical.suffix}")
     return latest if latest.exists() else canonical
 
@@ -122,8 +191,9 @@ def resolve_output_path(filename: str) -> Path:
 if __name__ == "__main__":
     print("config.py loaded successfully")
     print(f"  PROJECT_ROOT : {PROJECT_ROOT}")
-    print(f"  DATA_DIR     : {DATA_DIR}")
-    print(f"  OUTPUT_DIR   : {OUTPUT_DIR}")
+    print(f"  DATA_DIR     : {DATA_DIR}  (legacy)")
+    print(f"  OUTPUT_DIR   : {OUTPUT_DIR}  (legacy)")
+    print(f"  SEMESTERS_DIR: {SEMESTERS_DIR}")
     print(f"  SECTIONS     : {SECTIONS}")
     print(f"  DAYS         : {DAYS}")
     print(f"  PERIODS      : {PERIODS}")
@@ -131,3 +201,11 @@ if __name__ == "__main__":
     print(f"  LAB_PERIODS  : {LAB_PERIODS}")
     print(f"  MAX_HOURS    : {MAX_HOURS}")
     print(f"  CREDIT_MAP   : {CREDIT_MAP}")
+
+    print("\n── Semester path demo ──")
+    demo = get_sem_paths("cse_sem3")
+    for field in ("sem_id", "data_dir", "output_dir", "rag_index_path",
+                  "rag_docs_path", "chat_memory_path", "agent_ops_dir"):
+        print(f"  {field:20s}: {getattr(demo, field)}")
+
+    print(f"\n  Available semesters: {list_available_semesters()}")

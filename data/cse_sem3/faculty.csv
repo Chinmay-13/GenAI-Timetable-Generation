@@ -1,0 +1,21 @@
+faculty_id,name,designation,pref_time,pref_no_backtoback,pref_no_teaching_day
+F01,Prof. Ramesh Gupta,Prof,morning,False,none
+F02,Prof. Sunita Rao,Prof,morning,True,Monday
+F03,Prof. Vivek Nambiar,Prof,afternoon,False,none
+F04,Prof. Aditi Sharma,Asso Prof,morning,True,none
+F05,Prof. Rajesh Menon,Asso Prof,morning,False,Wednesday
+F06,Prof. Neha Kapoor,Asso Prof,afternoon,True,none
+F07,Prof. Sanjay Bhat,Asso Prof,morning,False,none
+F08,Prof. Pallavi Das,Asso Prof,morning,True,Friday
+F09,Prof. Manoj Iyer,Asso Prof,none,False,none
+F10,Prof. Rekha Joshi,Asso Prof,afternoon,True,none
+F11,Prof. Amith Hegde,Asst Prof,morning,False,Thursday
+F12,Prof. Swathi Nair,Asst Prof,morning,True,none
+F13,Prof. Ganesh Kulkarni,Asst Prof,none,False,none
+F14,Prof. Revathi Pillai,Asst Prof,afternoon,True,Tuesday
+F15,Prof. Naveen Shenoy,Asst Prof,morning,False,none
+F16,Prof. Suma Prasad,Asst Prof,morning,True,none
+F17,Prof. Dinesh Gowda,Asst Prof,afternoon,False,Monday
+F18,Prof. Aparna Murthy,Asst Prof,none,True,none
+F19,Prof. Tarun Srinivas,Asst Prof,morning,False,none
+F20,Prof. Megha Reddy,Asst Prof,afternoon,False,Wednesday

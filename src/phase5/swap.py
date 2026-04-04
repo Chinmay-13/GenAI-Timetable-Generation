@@ -145,7 +145,7 @@ def print_swap_plan(result: Dict[str, object]) -> None:
     print("═" * 50)
 
 
-def commit_swap(swap_result: Dict[str, object], reason: str = "") -> dict:
+def commit_swap(swap_result: Dict[str, object], reason: str = "", sem_id: str = None) -> dict:
     """
     Commit a confirmed load-swap to the timetable.
 
@@ -158,6 +158,8 @@ def commit_swap(swap_result: Dict[str, object], reason: str = "") -> dict:
     ----------
     swap_result : dict  (from find_swap_slot, must have swap_found=True)
     reason      : str   optional free-text reason for the log
+    sem_id      : str or None  — semester slug; passed to commit_schedule_change
+                  so writes land in the correct semester output directory.
 
     Returns
     -------
@@ -184,17 +186,20 @@ def commit_swap(swap_result: Dict[str, object], reason: str = "") -> dict:
         period_int = int(period_str)
 
     from src.phase5.sync_manager import commit_schedule_change
-    return commit_schedule_change({
-        "section":          str(swap_result["section"]),
-        "day":              str(swap_result["swap_day"]),
-        "period_start":     period_int,
-        "period_end":       period_int,        # swaps are single-period
-        # faculty_b was covering the slot; faculty_a reclaims it
-        "original_faculty": str(swap_result["faculty_b"]),
-        "new_faculty":      str(swap_result["faculty_a"]),
-        "change_type":      "swap",
-        "reason":           reason or swap_result.get("result", ""),
-    })
+    return commit_schedule_change(
+        {
+            "section":          str(swap_result["section"]),
+            "day":              str(swap_result["swap_day"]),
+            "period_start":     period_int,
+            "period_end":       period_int,        # swaps are single-period
+            # faculty_b was covering the slot; faculty_a reclaims it
+            "original_faculty": str(swap_result["faculty_b"]),
+            "new_faculty":      str(swap_result["faculty_a"]),
+            "change_type":      "swap",
+            "reason":           reason or swap_result.get("result", ""),
+        },
+        sem_id=sem_id,
+    )
 
 
 def main() -> None:

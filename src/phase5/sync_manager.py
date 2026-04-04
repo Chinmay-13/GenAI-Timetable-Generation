@@ -36,7 +36,7 @@ if str(_SYNC_ROOT) not in sys.path:
 import pandas as pd
 import config
 from config import DAYS, PERIODS, LAB_PERIODS, SHORT_NAMES, MAX_HOURS, SECTIONS
-from config import OUTPUT_DIR, DATA_DIR, resolve_output_path
+from config import OUTPUT_DIR, DATA_DIR, resolve_output_path, get_sem_paths
 from src.phase5.agent_ops import (
     BACKUPS_DIR, AGENT_OPS_DIR,
     log_operation, list_operations,
@@ -85,18 +85,21 @@ def _atomic_write_text(path: Path, content: str) -> None:
         raise
 
 
-def _faculty_csv_path(faculty_id: str) -> Path:
-    """Canonical path for a faculty timetable CSV (always in OUTPUT_DIR)."""
-    return OUTPUT_DIR / f"faculty_{faculty_id.upper()}_timetable.csv"
+def _faculty_csv_path(faculty_id: str, out: Path = None) -> Path:
+    """Canonical path for a faculty timetable CSV."""
+    base = out if out is not None else OUTPUT_DIR
+    return base / f"faculty_{faculty_id.upper()}_timetable.csv"
 
 
-def _section_csv_path(section: str) -> Path:
+def _section_csv_path(section: str, out: Path = None) -> Path:
     """Canonical path for a section timetable CSV."""
-    return OUTPUT_DIR / f"section_{section.upper()}_timetable.csv"
+    base = out if out is not None else OUTPUT_DIR
+    return base / f"section_{section.upper()}_timetable.csv"
 
 
-def _summary_path() -> Path:
-    return OUTPUT_DIR / "summary_report.txt"
+def _summary_path(out: Path = None) -> Path:
+    base = out if out is not None else OUTPUT_DIR
+    return base / "summary_report.txt"
 
 
 # ── backup helpers ────────────────────────────────────────────────────────────
@@ -117,12 +120,13 @@ def _backup_file(src: Path, backup_dir: Path) -> Optional[Path]:
     return dst
 
 
-def _restore_backup(backup_dir: Path, filenames: List[str]) -> None:
-    """Copy all *filenames* from backup_dir back to OUTPUT_DIR."""
+def _restore_backup(backup_dir: Path, filenames: List[str], out: Path = None) -> None:
+    """Copy all *filenames* from backup_dir back to the output directory."""
+    base = out if out is not None else OUTPUT_DIR
     for name in filenames:
         src = backup_dir / name
         if src.exists():
-            dst = OUTPUT_DIR / name
+            dst = base / name
             shutil.copy2(src, dst)
             logger.info("Rollback: restored %s", name)
         else:
@@ -137,9 +141,9 @@ def _initials(name: str) -> str:
     return "".join(t[0].upper() for t in tokens[:3]) if tokens else "NA"
 
 
-def _load_faculty_meta() -> Dict[str, Dict]:
+def _load_faculty_meta(data_dir: Path = None) -> Dict[str, Dict]:
     """Return {faculty_id: {name, designation, initials}}."""
-    fac_path = DATA_DIR / "faculty.csv"
+    fac_path = (data_dir if data_dir is not None else DATA_DIR) / "faculty.csv"
     if not fac_path.exists():
         return {}
     df = pd.read_csv(fac_path)
@@ -154,12 +158,13 @@ def _load_faculty_meta() -> Dict[str, Dict]:
     return meta
 
 
-def rebuild_faculty_csv(faculty_id: str) -> Path:
+def rebuild_faculty_csv(faculty_id: str, sem_id: str = None) -> Path:
     """
     Reconstruct a faculty timetable CSV by scanning every section CSV on disk.
 
     Returns the path written.
     """
+    out = get_sem_paths(sem_id).output_dir if sem_id else OUTPUT_DIR
     fid = faculty_id.strip().upper()
     period_cols = [f"P{p}" for p in PERIODS]
 
@@ -170,10 +175,9 @@ def rebuild_faculty_csv(faculty_id: str) -> Path:
     }
 
     for section in SECTIONS:
-        sec_path = _section_csv_path(section)
-        # Also fall back to .latest variant
+        sec_path = _section_csv_path(section, out)
         if not sec_path.exists():
-            sec_path = resolve_output_path(f"section_{section}_timetable.csv")
+            sec_path = out / f"section_{section}_timetable.csv"
         if not sec_path.exists():
             continue
         try:
@@ -189,18 +193,10 @@ def rebuild_faculty_csv(faculty_id: str) -> Path:
             for p in PERIODS:
                 col = f"P{p}"
                 cell = str(row.get(col, "----")).strip()
-                # A cell belongs to this faculty if it contains their initials
-                # in parentheses, or their ID, or it carries a substitution
-                # annotation like "DDCO (XYZ)→F07".
-                # Strategy: check if fid appears anywhere in the cell
-                # OR the base initials appear.
                 if _cell_belongs_to_faculty(cell, fid):
-                    # Format: "COURSE (Section)"
-                    # Strip any substitution annotation for display
                     base = cell.split("→")[0].strip()
                     grid[day][col] = f"{base} ({section})"
 
-    # Write
     rows = []
     for day in DAYS:
         row_data = {"Day": day}
@@ -209,7 +205,7 @@ def rebuild_faculty_csv(faculty_id: str) -> Path:
         rows.append(row_data)
 
     df_out = pd.DataFrame(rows, columns=["Day"] + period_cols)
-    out_path = _faculty_csv_path(fid)
+    out_path = _faculty_csv_path(fid, out)
     _atomic_write_csv(out_path, df_out)
     logger.info("Rebuilt faculty CSV: %s", out_path.name)
     return out_path
@@ -253,23 +249,25 @@ def _cell_belongs_to_faculty(cell: str, faculty_id: str) -> bool:
 
 # ── summary report reconstruction ────────────────────────────────────────────
 
-def rebuild_summary_report() -> Path:
+def rebuild_summary_report(sem_id: str = None) -> Path:
     """
     Rebuild summary_report.txt from all section CSVs currently on disk.
 
     Counts theory slots (non-LAB, non-empty) and lab slots (containing "LAB").
     Also recomputes faculty load from faculty CSVs.
     """
-    fac_meta = _load_faculty_meta()
+    out      = get_sem_paths(sem_id).output_dir if sem_id else OUTPUT_DIR
+    data_dir = get_sem_paths(sem_id).data_dir   if sem_id else DATA_DIR
+    fac_meta = _load_faculty_meta(data_dir)
     period_cols = [f"P{p}" for p in PERIODS]
 
     total_theory = 0
     total_lab = 0
 
     for section in SECTIONS:
-        sp = _section_csv_path(section)
+        sp = _section_csv_path(section, out)
         if not sp.exists():
-            sp = resolve_output_path(f"section_{section}_timetable.csv")
+            sp = out / f"section_{section}_timetable.csv"
         if not sp.exists():
             continue
         try:
@@ -301,9 +299,9 @@ def rebuild_summary_report() -> Path:
     ]
 
     for fid, meta in fac_meta.items():
-        fp = _faculty_csv_path(fid)
+        fp = _faculty_csv_path(fid, out)
         if not fp.exists():
-            fp = resolve_output_path(f"faculty_{fid}_timetable.csv")
+            fp = out / f"faculty_{fid}_timetable.csv"
         if not fp.exists():
             continue
         try:
@@ -323,7 +321,7 @@ def rebuild_summary_report() -> Path:
         )
 
     content = "\n".join(lines)
-    out_path = _summary_path()
+    out_path = _summary_path(out)
     _atomic_write_text(out_path, content)
     logger.info("Rebuilt summary_report.txt")
     return out_path
@@ -331,11 +329,11 @@ def rebuild_summary_report() -> Path:
 
 # ── RAG re-index (best-effort) ────────────────────────────────────────────────
 
-def _try_rebuild_rag() -> bool:
+def _try_rebuild_rag(sem_id: str = None) -> bool:
     """Attempt to rebuild the FAISS RAG index. Returns True on success."""
     try:
         from src.phase5.rag_indexer import build_index
-        result = build_index()
+        result = build_index(sem_id=sem_id)
         if result[0] is not None:
             logger.info("RAG index rebuilt successfully.")
             return True
@@ -350,7 +348,7 @@ def _try_rebuild_rag() -> bool:
 # Public API
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def commit_schedule_change(change_dict: dict) -> dict:
+def commit_schedule_change(change_dict: dict, sem_id: str = None) -> dict:
     """
     Atomically commit a schedule change and update ALL derived artifacts.
 
@@ -386,6 +384,9 @@ def commit_schedule_change(change_dict: dict) -> dict:
     if missing:
         raise ValueError(f"commit_schedule_change: missing keys {missing}")
 
+    # ── Resolve semester-aware output dir once ────────────────────────────────
+    out: Path = get_sem_paths(sem_id).output_dir if sem_id else OUTPUT_DIR
+
     section        = str(change_dict["section"]).upper()
     day            = str(change_dict["day"]).strip()
     p_start        = int(change_dict["period_start"])
@@ -395,9 +396,9 @@ def commit_schedule_change(change_dict: dict) -> dict:
     change_type    = str(change_dict["change_type"])
     reason         = str(change_dict.get("reason", ""))
 
-    sec_path       = _section_csv_path(section)
+    sec_path       = _section_csv_path(section, out)
     if not sec_path.exists():
-        sec_path = resolve_output_path(f"section_{section}_timetable.csv")
+        sec_path = out / f"section_{section}_timetable.csv"
     if not sec_path.exists():
         raise ValueError(
             f"Section CSV not found for section {section}. "
@@ -406,7 +407,9 @@ def commit_schedule_change(change_dict: dict) -> dict:
 
     # ── 1. Backup ─────────────────────────────────────────────────────────────
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    backup_dir = _make_backup_dir(ts)
+    # Backup dir lives inside the semester-aware output tree
+    backup_dir = out / "agent_ops" / "backups" / ts
+    backup_dir.mkdir(parents=True, exist_ok=True)
 
     backed_up: List[str] = []
 
@@ -416,9 +419,9 @@ def commit_schedule_change(change_dict: dict) -> dict:
             backed_up.append(path.name)
 
     _bk(sec_path)
-    _bk(_faculty_csv_path(orig_fac))
-    _bk(_faculty_csv_path(new_fac))
-    _bk(_summary_path())
+    _bk(_faculty_csv_path(orig_fac, out))
+    _bk(_faculty_csv_path(new_fac, out))
+    _bk(_summary_path(out))
 
     logger.info(
         "Backup created at %s for files: %s",
@@ -448,32 +451,32 @@ def commit_schedule_change(change_dict: dict) -> dict:
         logger.info("Section CSV patched: %s", sec_path.name)
 
     except Exception as exc:
-        _restore_backup(backup_dir, backed_up)
+        _restore_backup(backup_dir, backed_up, out)
         raise RuntimeError(
             f"Failed to patch section CSV — rolled back. Cause: {exc}"
         ) from exc
 
     # ── 3. Rebuild faculty CSVs ───────────────────────────────────────────────
     try:
-        rebuild_faculty_csv(orig_fac)
-        rebuild_faculty_csv(new_fac)
+        rebuild_faculty_csv(orig_fac, sem_id)
+        rebuild_faculty_csv(new_fac, sem_id)
     except Exception as exc:
-        _restore_backup(backup_dir, backed_up)
+        _restore_backup(backup_dir, backed_up, out)
         raise RuntimeError(
             f"Failed to rebuild faculty CSVs — rolled back. Cause: {exc}"
         ) from exc
 
     # ── 4. Rebuild summary_report.txt ─────────────────────────────────────────
     try:
-        rebuild_summary_report()
+        rebuild_summary_report(sem_id)
     except Exception as exc:
-        _restore_backup(backup_dir, backed_up)
+        _restore_backup(backup_dir, backed_up, out)
         raise RuntimeError(
             f"Failed to rebuild summary report — rolled back. Cause: {exc}"
         ) from exc
 
     # ── 5. RAG re-index (best-effort) ─────────────────────────────────────────
-    rag_ok = _try_rebuild_rag()
+    rag_ok = _try_rebuild_rag(sem_id)
 
     # ── 6. Log operation ──────────────────────────────────────────────────────
     try:
@@ -512,7 +515,7 @@ def commit_schedule_change(change_dict: dict) -> dict:
     }
 
 
-def rollback_change(operation_id: str) -> str:
+def rollback_change(operation_id: str, sem_id: str = None) -> str:
     """
     Roll back a committed change by operation_id.
 
@@ -521,6 +524,8 @@ def rollback_change(operation_id: str) -> str:
 
     Returns a human-readable status message.
     """
+    out = get_sem_paths(sem_id).output_dir if sem_id else OUTPUT_DIR
+
     AGENT_OPS_DIR.mkdir(parents=True, exist_ok=True)
     files = list(AGENT_OPS_DIR.glob(f"*-{operation_id}.json"))
     if not files:
@@ -539,13 +544,13 @@ def rollback_change(operation_id: str) -> str:
     # Restore every file that was backed up
     restored = []
     for bk_file in backup_dir.iterdir():
-        dst = OUTPUT_DIR / bk_file.name
+        dst = out / bk_file.name
         shutil.copy2(bk_file, dst)
         restored.append(bk_file.name)
         logger.info("Rollback: restored %s", bk_file.name)
 
     # Best-effort RAG rebuild after rollback
-    rag_ok = _try_rebuild_rag()
+    rag_ok = _try_rebuild_rag(sem_id)
 
     summary = (
         f"Rolled back operation '{operation_id}'. "

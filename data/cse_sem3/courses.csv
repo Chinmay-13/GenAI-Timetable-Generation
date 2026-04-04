@@ -1,0 +1,6 @@
+course_code,course_name,short_name,credits,theory_hours,lab_hours,has_lab,semester,department,is_elective
+UE24CS351A,Computer Networks and Security,CNS,5,4,2,True,3,CSE,False
+UE24CS352A,Operating Systems Design,OS,5,4,2,True,3,CSE,False
+UE24MA342A,Probability and Statistics,PROB,4,4,0,False,3,CSE,False
+UE24CS342A,Software Engineering Principles,SE,4,4,0,False,3,CSE,False
+UE24CS343A,Discrete Mathematics and Graph Theory,DMGT,4,4,0,False,3,CSE,False

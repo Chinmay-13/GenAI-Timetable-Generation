@@ -22,7 +22,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import resolve_output_path, SECTIONS, DATA_DIR, OUTPUT_DIR
+from config import resolve_output_path, SECTIONS, DATA_DIR, OUTPUT_DIR, list_available_semesters, get_sem_paths
+from src.phase0.loader import get_sem_metadata
 from src.phase5.substitute import (
     build_load_snapshot, find_substitute, load_course_data, faculty_lookup
 )
@@ -259,7 +260,9 @@ def inject_css():
 
 def render_sidebar() -> str:
     with st.sidebar:
-        st.markdown("""
+        sem_id = st.session_state.get("sem_id")
+        sem_label = sem_id.replace("_", " ").title() if sem_id else "Legacy"
+        st.markdown(f"""
         <div style="padding: 1rem 0 1.5rem 0;">
             <div style="font-family:'DM Serif Display',serif;
                         font-size:1.3rem; color:#1F2937;">
@@ -267,7 +270,7 @@ def render_sidebar() -> str:
             </div>
             <div style="font-size:0.7rem; color:#9CA3AF;
                         margin-top:0.2rem;">
-                CSE · 3rd Semester · 12 Sections
+                {sem_label} · 12 Sections
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -279,8 +282,85 @@ def render_sidebar() -> str:
             label_visibility="collapsed"
         )
 
+        # AI Features Active badge
+        st.markdown(
+            '<div style="background:#F5F3FF;border:1px solid #DDD6FE;'
+            'border-radius:8px;padding:0.65rem 0.9rem;margin:0.25rem 0 0.75rem 0;'
+            'font-size:0.72rem;color:#5B21B6;line-height:1.8;">'
+            '<strong>✦ AI Features Active</strong><br>'
+            '✦ Metadata filtering&nbsp;&nbsp;✦ Query decomposition<br>'
+            '✦ Cross-encoder rerank&nbsp;&nbsp;✦ Faculty preferences<br>'
+            '✦ CP-SAT room assignment'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
         st.markdown("---")
-        outputs_exist = resolve_output_path("summary_report.txt").exists()
+
+        # ── Semester Selector ─────────────────────────────────────────────
+        available_sems = list_available_semesters()
+        if available_sems:
+            selected = st.selectbox(
+                "Active Semester",
+                options=available_sems,
+                index=available_sems.index(st.session_state.sem_id)
+                      if st.session_state.sem_id in available_sems else 0,
+                key="sem_selector",
+            )
+            if selected != st.session_state.sem_id:
+                st.session_state.sem_id = selected
+                # clear chat and agent state on semester switch
+                st.session_state.messages = []
+                st.session_state.agent_history = []
+                st.rerun()
+
+            # Styled semester info card
+            try:
+                import json as _json
+                meta = get_sem_metadata(st.session_state.sem_id)
+                _paths      = get_sem_paths(st.session_state.sem_id)
+                _docs_path  = _paths.output_dir / "rag_docs.json"
+                _idx_path   = _paths.output_dir / "rag_index.faiss"
+                _doc_count  = 0
+                if _docs_path.exists():
+                    try:
+                        with open(_docs_path, encoding="utf-8") as _f:
+                            _doc_count = len(_json.load(_f))
+                    except Exception:
+                        pass
+                _elec_str = ""
+                if meta.get("has_electives"):
+                    _elec_str = "<br>🧪 Electives ✓"
+                _idx_str = (
+                    f"<br>📂 <code>rag_index.faiss</code> · {_doc_count} docs"
+                    if _idx_path.exists() else ""
+                )
+                st.markdown(
+                    f'<div style="background:#F0F9FF;border:1px solid #BAE6FD;'
+                    f'border-radius:8px;padding:0.65rem 0.9rem;margin:0.5rem 0;'
+                    f'font-size:0.78rem;color:#0369A1;line-height:1.6;">'
+                    f'📚 <strong>{meta["num_courses"]}</strong> courses '
+                    f'· <strong>{meta["num_faculty"]}</strong> faculty '
+                    f'· <strong>12</strong> sections'
+                    f'{_elec_str}'
+                    f'{_idx_str}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            except Exception:
+                pass
+
+        else:
+            st.warning("No semesters found. Run the pipeline first.")
+
+        st.markdown("---")
+        sem_id = st.session_state.get("sem_id")
+        _sem_out = get_sem_paths(sem_id).output_dir if sem_id else None
+        outputs_exist = (
+            (_sem_out / "summary_report.txt").exists()
+            if _sem_out
+            else resolve_output_path("summary_report.txt").exists()
+        )
 
         # Pipeline status
         if outputs_exist:
@@ -308,9 +388,13 @@ def render_sidebar() -> str:
         # Regenerate button
         if st.button("↺ Regenerate Schedule", use_container_width=True,
                      key="sb_regen"):
+            _sem_arg = st.session_state.get("sem_id")
+            _cmd = [sys.executable, "run_all.py"]
+            if _sem_arg:
+                _cmd += ["--sem", _sem_arg]
             with st.spinner("Running pipeline..."):
                 res = subprocess.run(
-                    [sys.executable, "run_all.py"],
+                    _cmd,
                     capture_output=True, text=True, cwd=str(PROJECT_ROOT),
                 )
             if res.returncode == 0:
@@ -326,7 +410,8 @@ def render_sidebar() -> str:
             with st.spinner("Rebuilding RAG index..."):
                 try:
                     from src.phase5.rag_indexer import build_index
-                    result_rag = build_index()
+                    _rag_sem = st.session_state.get("sem_id") or None
+                    result_rag = build_index(sem_id=_rag_sem)
                     if result_rag and result_rag[0] is not None:
                         st.success("RAG index rebuilt.")
                     else:
@@ -567,9 +652,12 @@ def render_dashboard() -> None:
         'Department Dashboard</h1>',
         unsafe_allow_html=True,
     )
+    _sem_display = (
+        st.session_state.get("sem_id", "legacy").replace("_", " ").title()
+    )
     st.markdown(
-        '<p style="color:#6B7280; font-size:0.9rem; margin-bottom:1.5rem;">'
-        'CSE · 3rd Semester · Academic Timetable Overview</p>',
+        f'<p style="color:#6B7280; font-size:0.9rem; margin-bottom:1.5rem;">'
+        f'{_sem_display} · Academic Timetable Overview</p>',
         unsafe_allow_html=True,
     )
 
@@ -739,6 +827,15 @@ def render_timetables() -> None:
             st.dataframe(
                 piv_df.style.applymap(_sec_cell, subset=ordered),
                 use_container_width=True, hide_index=True,
+            )
+            # Download button
+            _csv_bytes = piv_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="⬇ Download CSV",
+                data=_csv_bytes,
+                file_name=f"section_{section}_timetable.csv",
+                mime="text/csv",
+                key=f"dl_sec_{section}",
             )
             st.markdown("</div>", unsafe_allow_html=True)
         else:
@@ -1113,24 +1210,69 @@ def render_ai_assistant() -> None:
             {"role": "user", "content": user_input.strip()}
         )
         with st.spinner("Thinking..."):
-            from src.phase5.ai_explainer import explain_with_rag
+            from src.phase5.ai_explainer import explain_with_rag, _is_multihop, _decompose_query
+            from src.phase5.rag_indexer import retrieve
+            _sem  = st.session_state.get("sem_id")
+            _q    = user_input.strip()
+            _is_mh = _is_multihop(_q)
+            _sub_qs: list = []
+            if _is_mh:
+                try:
+                    _sub_qs = _decompose_query(_q, sem_id=_sem)
+                except Exception:
+                    _sub_qs = []
+            # Retrieve docs for debug panel (same call explain_with_rag makes internally)
+            _docs = retrieve(_q, k=5, sem_id=_sem, use_rerank=True)
+            _reranked = any("ce_score" in d for d in _docs)
             history_pairs = []
             for i in range(0, len(st.session_state.chat_history) - 1, 2):
                 msgs = st.session_state.chat_history
                 if i + 1 < len(msgs):
                     history_pairs.append((msgs[i]["content"], msgs[i + 1]["content"]))
             response = explain_with_rag(
-                user_input.strip(), history=history_pairs[-5:]
+                _q,
+                history=history_pairs[-5:],
+                sem_id=_sem,
             )
+            # Store retrieval metadata for the debug panel
+            st.session_state["_rag_debug"] = {
+                "query":      _q,
+                "multihop":   _is_mh,
+                "sub_queries": _sub_qs,
+                "doc_count":  len(_docs),
+                "reranked":   _reranked,
+                "snippets":   [d["text"][:80] for d in _docs[:3]],
+            }
         st.session_state.chat_history.append(
             {"role": "assistant", "content": response}
         )
         st.rerun()
 
+    # Retrieval debug expander
+    _dbg = st.session_state.get("_rag_debug")
+    if _dbg:
+        with st.expander("🔍 Retrieval details", expanded=False):
+            mh_str = (
+                f"Yes — decomposed into {len(_dbg['sub_queries'])} sub-queries"
+                if _dbg["multihop"] else "No (single-hop query)"
+            )
+            st.markdown(
+                f"**Query decomposed:** {mh_str}  \n"
+                + (f"**Sub-queries:** {', '.join(_dbg['sub_queries'])}  \n"
+                   if _dbg["sub_queries"] else "")
+                + f"**Docs retrieved after filtering:** {_dbg['doc_count']}  \n"
+                + f"**Cross-encoder reranking applied:** {'Yes' if _dbg['reranked'] else 'No'}  \n"
+            )
+            if _dbg["snippets"]:
+                st.markdown("**Top retrieved snippets:**")
+                for i, snip in enumerate(_dbg["snippets"], 1):
+                    st.caption(f"{i}. {snip}")
+
     # Clear button
     if st.session_state.chat_history:
         if st.button("Clear conversation"):
             st.session_state.chat_history = []
+            st.session_state.pop("_rag_debug", None)
             st.rerun()
 
 
@@ -1202,11 +1344,16 @@ def render_ai_agent() -> None:
             with st.spinner("Agent is working..."):
                 try:
                     from src.phase5.agent import create_timetable_agent
-                    agent = create_timetable_agent()
+                    agent = create_timetable_agent(
+                        sem_id=st.session_state.get("sem_id"),
+                    )
                     if agent is None:
                         # Fallback to direct substitute finder
                         from src.phase5.ai_explainer import explain_with_rag
-                        result = explain_with_rag(query)
+                        result = explain_with_rag(
+                            query,
+                            sem_id=st.session_state.get("sem_id"),
+                        )
                         st.session_state.agent_output = f"[Fallback] {result}"
                     else:
                         result = agent({"input": query})
@@ -1310,6 +1457,41 @@ def render_ai_agent() -> None:
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+
+        # Recent Operations table (last 5)
+        st.markdown(
+            '<div style="margin-top:1.25rem; padding-top:1rem; '
+            'border-top:1px solid #F3F4F6;">',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div style="font-size:0.8rem;font-weight:600;'
+            'color:#374151;margin-bottom:0.5rem;">Recent Operations</div>',
+            unsafe_allow_html=True,
+        )
+        recent_ops = list_operations(5)
+        if not recent_ops:
+            st.caption("No operations yet.")
+        else:
+            _op_rows = []
+            for _op in recent_ops:
+                _ts = _op.get("timestamp", "")[:16].replace("T", " ")
+                _op_rows.append({
+                    "Time":    _ts,
+                    "Action":  _op.get("action", "").upper(),
+                    "Section": _op.get("section_id", "?"),
+                    "Faculty": f"{_op.get('absent_faculty','?')} → {_op.get('substitute_faculty','?')}",
+                    "Status":  _op.get("commit_result", "?"),
+                })
+            _ops_df = pd.DataFrame(_op_rows)
+            def _ops_style(row):
+                clr = "#D1FAE5" if row["Status"] == "SUCCESS" else "#FEE2E2"
+                return [f"background-color:{clr};" if c == "Status" else "" for c in row.index]
+            st.dataframe(
+                _ops_df.style.apply(_ops_style, axis=1),
+                use_container_width=True, hide_index=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
 
         # Rollback UI
         st.markdown(
@@ -1690,6 +1872,16 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
     inject_css()
+
+    # ── Session state defaults (set before any widget renders) ────────────────
+    if "sem_id" not in st.session_state:
+        available = list_available_semesters()
+        st.session_state.sem_id = available[0] if available else None
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "agent_history" not in st.session_state:
+        st.session_state.agent_history = []
+
     page = render_sidebar()
 
     if page == "Dashboard":

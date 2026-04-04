@@ -51,10 +51,10 @@ def _load_rooms(rooms_df: pd.DataFrame) -> List[dict]:
     return classrooms.to_dict(orient="records")
 
 
-def _get_lab_occupied(room_grid: dict) -> Dict[str, set]:
+def _get_preoccupied_rooms(room_grid: dict) -> Dict[str, set]:
     """
-    Build a mapping: (day, period) -> set of room_names already used for labs.
-    room_grid is from Phase 2: room_grid[room_name][day][period] = token or None.
+    Build a mapping: (day, period) -> set of room_names already used by
+    fixed slots from Phase 2 (labs and pre-locked electives).
     """
     occupied: Dict[tuple, set] = {}
     for room_name, day_map in room_grid.items():
@@ -66,6 +66,35 @@ def _get_lab_occupied(room_grid: dict) -> Dict[str, set]:
     return occupied
 
 
+def _seed_fixed_elective_rows(
+    theory_room_grid: dict,
+    assignment_map: dict,
+    elective_details: list,
+) -> tuple[list, int]:
+    rows = []
+    assigned = 0
+
+    for detail in elective_details or []:
+        day = detail["day"]
+        room_name = detail["room"]
+        course = detail["course_code"]
+        course_short = SHORT_NAMES.get(course, course)
+        for period in range(int(detail["period_start"]), int(detail["period_end"]) + 1):
+            for section in detail["sections"]:
+                theory_room_grid[section][day][period] = room_name
+                rows.append({
+                    "Section": section,
+                    "Day": day,
+                    "Period": f"P{period}",
+                    "Course": course_short,
+                    "Faculty": assignment_map.get(course, {}).get(section, detail["faculty_id"]),
+                    "Room": room_name,
+                })
+                assigned += 1
+
+    return rows, assigned
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Public API
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -75,6 +104,7 @@ def assign_theory_rooms(
     room_grid: dict,
     assignment_map: dict,
     rooms_df: pd.DataFrame,
+    elective_details: list | None = None,
 ) -> tuple[dict, list]:
     """
     Assign classroom rooms to all theory slots via greedy bipartite matching.
@@ -98,7 +128,7 @@ def assign_theory_rooms(
         logger.warning("No CLASSROOM-type rooms found in rooms_df. "
                        "All theory slots will be ROOM_UNASSIGNED.")
 
-    lab_occupied = _get_lab_occupied(room_grid)
+    preoccupied_rooms = _get_preoccupied_rooms(room_grid)
 
     # Initialise output grid
     theory_room_grid: dict = {
@@ -106,8 +136,11 @@ def assign_theory_rooms(
         for section in SECTIONS
     }
 
-    rows: list = []
-    total_assigned = 0
+    rows, total_assigned = _seed_fixed_elective_rows(
+        theory_room_grid=theory_room_grid,
+        assignment_map=assignment_map,
+        elective_details=elective_details or [],
+    )
     total_unassigned = 0
 
     for day in DAYS:
@@ -121,13 +154,15 @@ def assign_theory_rooms(
                     continue
                 if _is_lab_token(value):
                     continue
+                if theory_room_grid[section][day][period] is not None:
+                    continue
                 theory_sections.append(section)
 
             if not theory_sections:
                 continue
 
             # ── Determine available classrooms ────────────────────────────────
-            used_rooms: set = lab_occupied.get((day, period), set())
+            used_rooms: set = preoccupied_rooms.get((day, period), set())
             available = [
                 r for r in classrooms
                 if r["room_name"] not in used_rooms
@@ -194,11 +229,18 @@ def run_phase35(
     section_grid: dict,
     room_grid: dict,
     assignment_map: dict,
+    elective_details: list | None = None,
     data_dir: str | Path = DATA_DIR,
     output_dir: str | Path = OUTPUT_DIR,
+    room_assignment_map: dict | None = None,
 ) -> dict:
     """
     Convenience wrapper called from run_all.py.
+
+    When room_assignment_map is provided (non-empty dict from CP-SAT Phase 3),
+    it is used directly to build the CSV rows — the greedy assignment is skipped.
+    When room_assignment_map is empty or None (legacy / rooms_df not available),
+    the original greedy bipartite matching runs as before.
 
     Returns
     -------
@@ -207,18 +249,72 @@ def run_phase35(
       total_assigned, total_unassigned
     """
     rooms_df = pd.read_csv(Path(data_dir) / "rooms.csv")
-    theory_room_grid, rows = assign_theory_rooms(
-        section_grid=section_grid,
-        room_grid=room_grid,
-        assignment_map=assignment_map,
-        rooms_df=rooms_df,
-    )
-    csv_path = save_room_assignment(rows, output_dir)
 
-    total_assigned   = sum(1 for r in rows if r["Room"] != "ROOM_UNASSIGNED")
-    total_unassigned = sum(1 for r in rows if r["Room"] == "ROOM_UNASSIGNED")
+    # ── CP-SAT pre-solved path ─────────────────────────────────────────────────
+    if room_assignment_map:
+        # Build output structures from the CP-SAT solution directly
+        theory_room_grid: dict = {
+            section: {day: {period: None for period in PERIODS} for day in DAYS}
+            for section in SECTIONS
+        }
+        rows = []
+        total_assigned = 0
+        total_unassigned = 0
+
+        # Seed elective rows first (same as greedy path)
+        elec_rows, elec_assigned = _seed_fixed_elective_rows(
+            theory_room_grid=theory_room_grid,
+            assignment_map=assignment_map,
+            elective_details=elective_details or [],
+        )
+        rows.extend(elec_rows)
+        total_assigned += elec_assigned
+
+        # Fill from CP-SAT room_assignment_map
+        for section in SECTIONS:
+            for day in DAYS:
+                for period in PERIODS:
+                    cell = section_grid[section][day][period]
+                    if cell is None or _is_lab_token(cell):
+                        continue
+                    if theory_room_grid[section][day][period] is not None:
+                        continue  # already seeded by elective
+                    room_name = room_assignment_map.get(
+                        (section, day, period), "ROOM_UNASSIGNED"
+                    )
+                    theory_room_grid[section][day][period] = room_name
+                    if room_name == "ROOM_UNASSIGNED":
+                        total_unassigned += 1
+                    else:
+                        total_assigned += 1
+                    rows.append({
+                        "Section": section,
+                        "Day":     day,
+                        "Period":  f"P{period}",
+                        "Course":  SHORT_NAMES.get(cell, cell),
+                        "Faculty": assignment_map.get(cell, {}).get(section, "?"),
+                        "Room":    room_name,
+                    })
+
+        csv_path = save_room_assignment(rows, output_dir)
+        source_label = "CP-SAT (conflict-free)"
+
+    # ── Legacy greedy path ────────────────────────────────────────────────────
+    else:
+        theory_room_grid, rows = assign_theory_rooms(
+            section_grid=section_grid,
+            room_grid=room_grid,
+            assignment_map=assignment_map,
+            rooms_df=rooms_df,
+            elective_details=elective_details,
+        )
+        csv_path = save_room_assignment(rows, output_dir)
+        total_assigned   = sum(1 for r in rows if r["Room"] != "ROOM_UNASSIGNED")
+        total_unassigned = sum(1 for r in rows if r["Room"] == "ROOM_UNASSIGNED")
+        source_label     = "greedy (legacy fallback)"
 
     print(f"\nPHASE 3.5 COMPLETE — Room Assignment")
+    print(f"  Source          : {source_label}")
     print(f"  CSV             : {csv_path}")
     print(f"  Slots assigned  : {total_assigned}")
     print(f"  Slots unassigned: {total_unassigned}")
@@ -245,16 +341,18 @@ if __name__ == "__main__":
     from src.phase1.assignment_builder import build_assignment_map
 
     assignment_map = build_assignment_map()
-    sec_grid, fac_grid, rm_grid, lab_details = lock_labs()
+    sec_grid, fac_grid, rm_grid, lab_details, elective_details = lock_labs()
     result = solve_theory(
         assignment_map=assignment_map,
         section_grid=sec_grid,
         faculty_grid=fac_grid,
         room_grid=rm_grid,
         lab_details=lab_details,
+        elective_details=elective_details,
     )
     run_phase35(
         section_grid=result["section_grid"],
         room_grid=result["room_grid"],
         assignment_map=result["assignment_map"],
+        elective_details=result.get("elective_details", []),
     )

@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import DAYS, LAB_PERIODS, MAX_HOURS, SHORT_NAMES, resolve_output_path
+from config import DAYS, LAB_PERIODS, MAX_HOURS, SHORT_NAMES, resolve_output_path, get_sem_paths
 
 
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
@@ -145,8 +145,12 @@ def all_faculty_ids() -> List[str]:
 
 
 @lru_cache(maxsize=None)
-def load_faculty_timetable(faculty_id: str) -> pd.DataFrame:
-    path = resolve_output_path(f"faculty_{faculty_id}_timetable.csv")
+def load_faculty_timetable(faculty_id: str, out_dir: Optional[Path] = None) -> pd.DataFrame:
+    """Load a faculty timetable CSV, using out_dir when semester-specific."""
+    if out_dir is not None:
+        path = out_dir / f"faculty_{faculty_id}_timetable.csv"
+    else:
+        path = resolve_output_path(f"faculty_{faculty_id}_timetable.csv")
     if not path.exists():
         raise FileNotFoundError(f"Faculty timetable not found for {faculty_id}: {path}")
     df = pd.read_csv(path)
@@ -155,8 +159,12 @@ def load_faculty_timetable(faculty_id: str) -> pd.DataFrame:
 
 
 @lru_cache(maxsize=None)
-def load_section_timetable(section: str) -> pd.DataFrame:
-    path = resolve_output_path(f"section_{section}_timetable.csv")
+def load_section_timetable(section: str, out_dir: Optional[Path] = None) -> pd.DataFrame:
+    """Load a section timetable CSV, using out_dir when semester-specific."""
+    if out_dir is not None:
+        path = out_dir / f"section_{section}_timetable.csv"
+    else:
+        path = resolve_output_path(f"section_{section}_timetable.csv")
     if not path.exists():
         raise FileNotFoundError(f"Section timetable not found for {section}: {path}")
     df = pd.read_csv(path)
@@ -164,26 +172,26 @@ def load_section_timetable(section: str) -> pd.DataFrame:
     return df
 
 
-def get_faculty_day_row(faculty_id: str, day: str) -> pd.Series:
-    df = load_faculty_timetable(faculty_id)
+def get_faculty_day_row(faculty_id: str, day: str, out_dir: Optional[Path] = None) -> pd.Series:
+    df = load_faculty_timetable(faculty_id, out_dir)
     day_df = df[df["Day"].str.lower() == day.lower()]
     if day_df.empty:
         raise ValueError(f"{day} not found in faculty timetable for {faculty_id}")
     return day_df.iloc[0]
 
 
-def get_faculty_load(faculty_id: str) -> int:
-    df = load_faculty_timetable(faculty_id)
+def get_faculty_load(faculty_id: str, out_dir: Optional[Path] = None) -> int:
+    df = load_faculty_timetable(faculty_id, out_dir)
     return int((df[PERIOD_COLUMNS] != "----").sum().sum())
 
 
-def build_load_snapshot() -> Dict[str, Dict[str, object]]:
+def build_load_snapshot(out_dir: Optional[Path] = None) -> Dict[str, Dict[str, object]]:
     lookup = faculty_lookup()
     snapshot: Dict[str, Dict[str, object]] = {}
     for faculty_id in all_faculty_ids():
         designation = lookup[faculty_id]["designation"]
         max_hours = MAX_HOURS.get(designation, 16)
-        total_hours = get_faculty_load(faculty_id)
+        total_hours = get_faculty_load(faculty_id, out_dir)
         snapshot[faculty_id] = {
             "name": lookup[faculty_id]["name"],
             "designation": designation,
@@ -216,8 +224,9 @@ def _rank_candidates(
     day: str,
     period: str,
     slot_info: Dict[str, object],
+    out_dir: Optional[Path] = None,
 ) -> List[Dict[str, object]]:
-    loads = build_load_snapshot()
+    loads = build_load_snapshot(out_dir)
     faculty_info = faculty_lookup()
     teaching_map = assignments_by_faculty()
     required_course_code = slot_info.get("course_code")
@@ -238,7 +247,7 @@ def _rank_candidates(
         if projected_load > max_hours:
             continue
 
-        day_row = get_faculty_day_row(faculty_id, day)
+        day_row = get_faculty_day_row(faculty_id, day, out_dir)
         if str(day_row[period]).strip() != "----":
             continue
 
@@ -284,8 +293,8 @@ def _rank_candidates(
     )
 
 
-def _collect_absent_slots(absent_faculty_id: str, day: str) -> List[Dict[str, object]]:
-    row = get_faculty_day_row(absent_faculty_id, day)
+def _collect_absent_slots(absent_faculty_id: str, day: str, out_dir: Optional[Path] = None) -> List[Dict[str, object]]:
+    row = get_faculty_day_row(absent_faculty_id, day, out_dir)
     slots: List[Dict[str, object]] = []
     for period in PERIOD_COLUMNS:
         parsed = parse_timetable_cell(row[period])
@@ -304,7 +313,10 @@ def _collect_absent_slots(absent_faculty_id: str, day: str) -> List[Dict[str, ob
     return slots
 
 
-def find_substitute(absent_faculty_id: str, absent_day: str) -> Dict[str, object]:
+def find_substitute(absent_faculty_id: str, absent_day: str, sem_id: str = None) -> Dict[str, object]:
+    # Resolve semester-aware output dir once; None → falls back to resolve_output_path()
+    out_dir: Optional[Path] = get_sem_paths(sem_id).output_dir if sem_id else None
+
     faculty_id = str(absent_faculty_id).strip().upper()
     day = normalize_day(absent_day)
     lookup = faculty_lookup()
@@ -312,7 +324,7 @@ def find_substitute(absent_faculty_id: str, absent_day: str) -> Dict[str, object
         raise ValueError(f"Unknown faculty_id: {faculty_id}")
 
     absent_info = lookup[faculty_id]
-    original_slots = _collect_absent_slots(faculty_id, day)
+    original_slots = _collect_absent_slots(faculty_id, day, out_dir)
     substitutions: List[Dict[str, object]] = []
     unresolved: List[Dict[str, object]] = []
 
@@ -334,6 +346,7 @@ def find_substitute(absent_faculty_id: str, absent_day: str) -> Dict[str, object
             day=day,
             period=period_str,
             slot_info=slot,
+            out_dir=out_dir,
         )
 
         if is_lab_block:
@@ -343,7 +356,7 @@ def find_substitute(absent_faculty_id: str, absent_day: str) -> Dict[str, object
                 all_free = True
                 for bp in block_periods:
                     try:
-                        bp_row = get_faculty_day_row(candidate["faculty_id"], day)
+                        bp_row = get_faculty_day_row(candidate["faculty_id"], day, out_dir)
                         if str(bp_row[bp]).strip() != "----":
                             all_free = False
                             break
@@ -399,7 +412,7 @@ def find_substitute(absent_faculty_id: str, absent_day: str) -> Dict[str, object
         ],
         "substitutions": substitutions,
         "unresolved": unresolved,
-        "loads": build_load_snapshot(),
+        "loads": build_load_snapshot(out_dir),
     }
 
 

@@ -46,6 +46,40 @@ def _initials(name):
     return "".join(t[0].upper() for t in tokens[:3]) if tokens else "NA"
 
 
+def _build_short_name_map(data_dir: str) -> dict:
+    """
+    Build course_code -> display_name lookup.
+    Priority:
+      1. SHORT_NAMES from config.py
+      2. short_name column in courses.csv (if present)
+      3. Fallback: course_code itself
+    """
+    name_map: dict = {}
+    try:
+        df = pd.read_csv(f"{data_dir}/courses.csv")
+        if "short_name" in df.columns:
+            for _, row in df.iterrows():
+                code = str(row["course_code"]).strip()
+                sn   = str(row["short_name"]).strip()
+                if sn and sn.lower() not in {"nan", "none", ""}:
+                    name_map[code] = sn
+    except Exception:
+        pass  # courses.csv unreadable — fall through to SHORT_NAMES / code
+    # SHORT_NAMES overrides the CSV (highest priority)
+    name_map.update(SHORT_NAMES)
+    return name_map
+
+
+def _set_faculty_cell(faculty_table, faculty_id, day, period, cell):
+    current = faculty_table[faculty_id][day][period]
+    if current not in {"----", cell}:
+        raise ValueError(
+            f"Faculty output collision for {faculty_id} at {day} P{period}: "
+            f"'{current}' vs '{cell}'"
+        )
+    faculty_table[faculty_id][day][period] = cell
+
+
 def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
     if result is None:
         result = solve_theory(data_dir=data_dir)
@@ -54,12 +88,16 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
     faculty_grid = result["faculty_grid"]
     assignment_map = result["assignment_map"]
     lab_details = result["lab_details"]
+    elective_details = result.get("elective_details", [])
     soft_violations = result.get("soft_violations", {})
 
     faculty_df = pd.read_csv(f"{data_dir}/faculty.csv")
     faculty_name = dict(zip(faculty_df["faculty_id"], faculty_df["name"]))
     faculty_designation = dict(zip(faculty_df["faculty_id"], faculty_df["designation"]))
     faculty_initials = {fid: _initials(name) for fid, name in faculty_name.items()}
+
+    # Short-name lookup: SHORT_NAMES > courses.csv short_name > raw code
+    sn = _build_short_name_map(data_dir)
 
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
@@ -80,6 +118,21 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
                     "pair": sections,
                 }
 
+    elective_lookup = {}
+    for item in elective_details:
+        course = item["course_code"]
+        day = item["day"]
+        sections = item["sections"]
+        faculty_id = item["faculty_id"]
+        for p in range(int(item["period_start"]), int(item["period_end"]) + 1):
+            for sec in sections:
+                elective_lookup[(sec, day, p)] = {
+                    "course": course,
+                    "faculty_id": faculty_id,
+                    "sections": sections,
+                    "elective_group": item.get("elective_group"),
+                }
+
     for section in SECTIONS:
         rows = []
         for day in DAYS:
@@ -90,10 +143,17 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
                     cell = "----"
                 elif isinstance(value, str) and value.endswith("_LAB"):
                     course = value.replace("_LAB", "")
-                    cell = f"{SHORT_NAMES.get(course, course)} LAB"
+                    cell = f"{sn.get(course, course)} LAB"
                 else:
-                    faculty_id = assignment_map[value][section]
-                    cell = f"{SHORT_NAMES.get(value, value)} ({faculty_initials[faculty_id]})"
+                    elective_info = elective_lookup.get((section, day, p))
+                    if elective_info is not None:
+                        faculty_id = elective_info["faculty_id"]
+                    else:
+                        faculty_id = assignment_map.get(value, {}).get(section)
+                    if faculty_id is None:
+                        cell = sn.get(value, value)
+                    else:
+                        cell = f"{sn.get(value, value)} ({faculty_initials[faculty_id]})"
                 row[f"P{p}"] = cell
             rows.append(row)
 
@@ -106,6 +166,20 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
         for fid in faculty_ids
     }
 
+    for item in lab_details:
+        fid = item["faculty_id"]
+        pair = "+".join(item["sections"])
+        cell = f"{sn.get(item['course_code'], item['course_code'])} LAB ({pair})"
+        for p in LAB_PERIODS:
+            _set_faculty_cell(faculty_table, fid, item["day"], p, cell)
+
+    for item in elective_details:
+        fid = item["faculty_id"]
+        sections_str = "+".join(item["sections"])
+        cell = f"{sn.get(item['course_code'], item['course_code'])} ({sections_str})"
+        for p in range(int(item["period_start"]), int(item["period_end"]) + 1):
+            _set_faculty_cell(faculty_table, fid, item["day"], p, cell)
+
     for section in SECTIONS:
         for day in DAYS:
             for p in PERIODS:
@@ -113,16 +187,19 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
                 if value is None:
                     continue
                 if isinstance(value, str) and value.endswith("_LAB"):
-                    info = lab_lookup.get((section, day, p))
-                    if not info:
-                        continue
-                    fid = info["faculty_id"]
-                    pair = "+".join(info["pair"])
-                    cell = f"{SHORT_NAMES.get(info['course'], info['course'])} LAB ({pair})"
-                    faculty_table[fid][day][p] = cell
-                else:
-                    fid = assignment_map[value][section]
-                    faculty_table[fid][day][p] = f"{SHORT_NAMES.get(value, value)} ({section})"
+                    continue
+                if (section, day, p) in elective_lookup:
+                    continue
+                fid = assignment_map.get(value, {}).get(section)
+                if fid is None:
+                    continue
+                _set_faculty_cell(
+                    faculty_table,
+                    fid,
+                    day,
+                    p,
+                    f"{sn.get(value, value)} ({section})",
+                )
 
     for fid in faculty_ids:
         rows = []
@@ -136,6 +213,7 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
 
     total_theory_slots = 0
     total_lab_slots = 0
+    total_elective_slots = 0
     for section in SECTIONS:
         for day in DAYS:
             for p in PERIODS:
@@ -146,12 +224,15 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
                     total_lab_slots += 1
                 else:
                     total_theory_slots += 1
+                    if (section, day, p) in elective_lookup:
+                        total_elective_slots += 1
 
     report_lines = []
     report_lines.append("TIMETABLE SUMMARY REPORT")
     report_lines.append("========================")
     report_lines.append(f"Total sections scheduled: {len(SECTIONS)}")
-    report_lines.append(f"Total theory slots placed: {total_theory_slots}")
+    report_lines.append(f"Total theory/elective slots placed: {total_theory_slots}")
+    report_lines.append(f"Total fixed elective slots placed: {total_elective_slots}")
     report_lines.append(
         f"Total lab slots placed: {total_lab_slots} (12 pairs x 2 periods x 2 sections = 48)"
     )
@@ -181,10 +262,11 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
 
     _write_text_with_fallback("\n".join(report_lines), out_path / "summary_report.txt")
 
-    print("PHASE 4 COMPLETE - all outputs generated in outputs/")
+    print(f"PHASE 4 COMPLETE - all outputs generated in {out_path}/")
 
     return {
         "total_theory_slots": total_theory_slots,
+        "total_elective_slots": total_elective_slots,
         "total_lab_slots": total_lab_slots,
         "output_dir": str(out_path),
     }
