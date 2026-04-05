@@ -1,6 +1,0 @@
-course_code,course_name,credits,theory_hours,lab_hours,has_lab,semester,department
-UE24CS251A,Digital Design and Computer Organization,5,4,2,True,3,CSE
-UE24CS252A,Data Structures and its Applications,5,4,2,True,3,CSE
-UE24MA242A,Mathematics for Computer Science and Engg,4,4,0,False,3,CSE
-UE24CS242A,Web Technologies,4,4,0,False,3,CSE
-UE24CS243A,Automata Formal Languages and Logic,4,4,0,False,3,CSE

@@ -1,0 +1,13 @@
+day,course_code,section_pair,room,faculty_id
+Monday,UE24CS251A,"A,D",2nd floor seminar hall,F04
+Monday,UE24CS251A,"B,J",6th floor seminar hall,F05
+Monday,UE24CS251A,"C,L",7th floor seminar hall,F06
+Monday,UE24CS251A,"E,I",9th floor seminar hall,F07
+Monday,UE24CS251A,"F,H",11th floor seminar hall,F08
+Monday,UE24CS251A,"G,K",Ground floor seminar hall,F09
+Thursday,UE24CS252A,"A,B",6th floor seminar hall,F10
+Thursday,UE24CS252A,"C,J",7th floor seminar hall,F11
+Thursday,UE24CS252A,"H,K",2nd floor seminar hall,F12
+Thursday,UE24CS252A,"E,D",Ground floor seminar hall,F13
+Thursday,UE24CS252A,"F,I",9th floor seminar hall,F14
+Thursday,UE24CS252A,"G,L",11th floor seminar hall,F15

@@ -303,6 +303,19 @@ def solve_theory(
         day: base_daily_target + (1 if day_idx < extra_days else 0)
         for day_idx, day in enumerate(DAYS)
     }
+
+    # Per-(section, day) free-slot targets: count P1-P4 slots not yet locked
+    # in section_grid (by labs or electives). The solver must fill exactly this
+    # many slots so that every free theory period is occupied.
+    # Computed here, after all pre-locking is complete.
+    section_day_targets: dict = {
+        (sec, day): sum(
+            1 for p in THEORY_PERIODS
+            if section_grid[sec][day][p] is None
+        )
+        for sec in SECTIONS
+        for day in DAYS
+    }
     faculty_ids = faculty_df["faculty_id"].tolist()
     faculty_course_sections = _faculty_course_sections(
         {course: assignment_map.get(course, {}) for course in scheduled_course_codes}
@@ -418,23 +431,21 @@ def solve_theory(
                 else:
                     model.Add(used == 0)
 
-            # ── Hard compactness: occupied slots form a prefix from P1 ────
-            # occupied(p) = 1 if pre-locked OR theory-assigned.
-            # Enforce occupied(p) >= occupied(p+1) for adjacent theory periods.
+            # ── Hard compactness: no gap between solver-assigned theory slots ──
+            # Skip any pair where p_next is pre-locked (elective or lab);
+            # its is_used=0 regardless, so a monotonicity constraint on it
+            # would either be vacuous or wrongly force p_curr == 1.
             for idx in range(len(THEORY_PERIODS) - 1):
                 p_curr = THEORY_PERIODS[idx]
                 p_next = THEORY_PERIODS[idx + 1]
+                # If p_next is pre-locked, skip this pair entirely.
+                if section_grid[section][day][p_next] is not None:
+                    continue
                 curr_locked = section_grid[section][day][p_curr] is not None
-                next_locked = section_grid[section][day][p_next] is not None
-                if curr_locked and next_locked:
-                    pass  # both occupied — trivially compact
-                elif next_locked and not curr_locked:
-                    # next always occupied, so curr must be too
-                    model.Add(is_used[(section, day, p_curr)] == 1)
-                elif curr_locked and not next_locked:
-                    pass  # curr always occupied, next unconstrained
+                if curr_locked:
+                    pass  # p_curr always occupied, p_next free — unconstrained
                 else:
-                    # neither locked — monotonic
+                    # Both free — enforce occupied(p_curr) >= occupied(p_next)
                     model.Add(
                         is_used[(section, day, p_curr)]
                         >= is_used[(section, day, p_next)]
@@ -445,7 +456,10 @@ def solve_theory(
                 dcount
                 == sum(is_used[(section, day, period)] for period in THEORY_PERIODS)
             )
-            model.Add(dcount == daily_targets[day])
+            # Use per-(section, day) target: exactly the number of free P1-P4
+            # slots remaining after all pre-locks.  Guarantees every free
+            # theory slot is filled without over-committing locked periods.
+            model.Add(dcount == section_day_targets[(section, day)])
             daily_count[(section, day)] = dcount
 
             for p2 in range(2, len(THEORY_PERIODS) + 1):  # P2 to P4
@@ -545,23 +559,24 @@ def solve_theory(
                         penalty_terms.append(x[key] * PENALTY_LAB_WINDOW)
 
     # ── A. Faculty time preference (morning=P1-P2, afternoon=P3-P4) ───────────
-    # PENALTY_PREF_TIME=8 — below all structural penalties; feasibility first.
-    _MORNING_PERIODS    = {1, 2}   # P1, P2
-    _AFTERNOON_PERIODS  = {3, 4}   # P3, P4
-    for faculty_id, prefs in faculty_prefs.items():
-        pt = prefs["pref_time"]
-        if pt not in ("morning", "afternoon"):
-            continue
-        bad_periods = _AFTERNOON_PERIODS if pt == "morning" else _MORNING_PERIODS
-        for course in scheduled_course_codes:
-            for section, assigned_fac in assignment_map.get(course, {}).items():
-                if assigned_fac != faculty_id:
-                    continue
-                for day in DAYS:
-                    for period in bad_periods:
-                        key = (section, course, day, period)
-                        if key in x:
-                            penalty_terms.append(x[key] * PENALTY_PREF_TIME)
+    # TODO pref_time: temporarily disabled — causes morning bunching when
+    # electives pre-lock P3-P4, leaving only P1-P2 for theory on some days.
+    # _MORNING_PERIODS    = {1, 2}   # P1, P2
+    # _AFTERNOON_PERIODS  = {3, 4}   # P3, P4
+    # for faculty_id, prefs in faculty_prefs.items():
+    #     pt = prefs["pref_time"]
+    #     if pt not in ("morning", "afternoon"):
+    #         continue
+    #     bad_periods = _AFTERNOON_PERIODS if pt == "morning" else _MORNING_PERIODS
+    #     for course in scheduled_course_codes:
+    #         for section, assigned_fac in assignment_map.get(course, {}).items():
+    #             if assigned_fac != faculty_id:
+    #                 continue
+    #             for day in DAYS:
+    #                 for period in bad_periods:
+    #                     key = (section, course, day, period)
+    #                     if key in x:
+    #                         penalty_terms.append(x[key] * PENALTY_PREF_TIME)
 
     # ── B. Faculty no-back-to-back preference ─────────────────────────────────
     # PENALTY_PREF_NO_BTB=6 — penalise consecutive faculty slots on same day.
@@ -869,7 +884,8 @@ def solve_theory(
     for section in SECTIONS:
         for day in DAYS:
             soft_counts["daily_load_imbalance"] += abs(
-                final_solver.Value(daily_count[(section, day)]) - daily_targets[day]
+                final_solver.Value(daily_count[(section, day)])
+                - section_day_targets[(section, day)]
             )
             for p2 in range(2, len(THEORY_PERIODS) + 1):
                 if final_solver.Value(gap_var[(section, day, p2)]) == 1:

@@ -136,6 +136,9 @@ def _apply_filters(docs: list[dict], filters: dict) -> list[int]:
     --------------
     section     : doc["section"] == filters["section"]
     day         : doc["day"]     == filters["day"]
+                  EXCEPTION: day="all" (full-week summary docs) always pass
+                  the day filter so they are always included in section/faculty
+                  filtered searches.
     faculty     : doc["faculty"] == filters["faculty"]
     source_type : filters["source_type"] string is contained in doc["source"]
                   (e.g. "section" ⊆ "section_A_timetable.csv")
@@ -150,11 +153,13 @@ def _apply_filters(docs: list[dict], filters: dict) -> list[int]:
         match = True
 
         if "section" in filters:
-            if doc.get("section") != filters["section"]:
+            # docs with section="all" (cross-section summaries) always pass
+            if doc.get("section") != "all" and doc.get("section") != filters["section"]:
                 match = False
 
         if match and "day" in filters:
-            if doc.get("day") != filters["day"]:
+            # full-week summary docs (day="all") always pass the day filter
+            if doc.get("day") != "all" and doc.get("day") != filters["day"]:
                 match = False
 
         if match and "faculty" in filters:
@@ -277,6 +282,7 @@ def build_index(sem_id: str = None):
         discovered_sections.append(section)
         period_cols = _period_columns(df)
 
+        # ── Per-slot and per-day docs ──────────────────────────────────────────
         for _, row in df.iterrows():
             day = str(row["Day"]).strip()
             occupied = []
@@ -303,6 +309,30 @@ def build_index(sem_id: str = None):
                 "source": csv_path.name,
             })
 
+        # ── Full-week summary doc (one per section) ────────────────────────────
+        # This single document answers "What is Section X's full timetable?"
+        # Cross-encoder ranks it #1 for broad schedule queries.
+        week_lines = [f"Section {section} full weekly timetable:"]
+        for day_name in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]:
+            day_rows = df[df["Day"].str.strip() == day_name]
+            if day_rows.empty:
+                week_lines.append(f"  {day_name}: no data")
+                continue
+            row = day_rows.iloc[0]
+            slots = []
+            for p in period_cols:
+                val = str(row.get(p, "----")).strip()
+                if val and val not in ("", "----", "nan"):
+                    slots.append(f"{p}={val}")
+            week_lines.append(f"  {day_name}: " + (", ".join(slots) if slots else "no classes"))
+        docs.append({
+            "text":    "\n".join(week_lines),
+            "section": section,
+            "day":     "all",
+            "period":  "all",
+            "source":  "section_full_week",
+        })
+
     # ── Faculty timetable files ───────────────────────────────────────────────
     for csv_path in faculty_files:
         try:
@@ -313,6 +343,7 @@ def build_index(sem_id: str = None):
         faculty_id = csv_path.stem.removeprefix("faculty_").removesuffix("_timetable")
         period_cols = _period_columns(df)
 
+        # ── Per-slot and per-day docs ──────────────────────────────────────────
         for _, row in df.iterrows():
             day = str(row["Day"]).strip()
             occupied = []
@@ -338,6 +369,72 @@ def build_index(sem_id: str = None):
                 "day": day,
                 "source": csv_path.name,
             })
+
+        # ── Full-week summary doc (one per faculty) ────────────────────────────
+        # Answers "What is F05's full schedule / workload?"
+        week_lines = [f"Faculty {faculty_id} full weekly schedule:"]
+        for day_name in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]:
+            day_rows = df[df["Day"].str.strip() == day_name]
+            if day_rows.empty:
+                week_lines.append(f"  {day_name}: no classes")
+                continue
+            row = day_rows.iloc[0]
+            slots = []
+            for p in period_cols:
+                val = str(row.get(p, "----")).strip()
+                if val and val not in ("", "----", "nan"):
+                    slots.append(f"{p}={val}")
+            week_lines.append(f"  {day_name}: " + (", ".join(slots) if slots else "no classes"))
+        docs.append({
+            "text":    "\n".join(week_lines),
+            "faculty": faculty_id,
+            "day":     "all",
+            "period":  "all",
+            "source":  "faculty_full_week",
+        })
+
+    # ── Per-slot cross-section summary documents ─────────────────────────────
+    # One doc per (day, period) listing ALL faculty+sections teaching that slot.
+    # This makes "Who teaches on Wednesday P3?" hit a single document with every
+    # faculty member in one shot, instead of requiring 12 separate section docs.
+    THEORY_PERIODS = [f"P{p}" for p in range(1, 5)]  # P1-P4 theory only
+    DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+
+    # Build a map: section -> {day -> {period -> cell}} from already-read files
+    section_day_period: dict = {}
+    for csv_path2 in section_files:
+        try:
+            df2 = pd.read_csv(csv_path2)
+        except Exception:
+            continue
+        sec2 = csv_path2.stem.removeprefix("section_").removesuffix("_timetable")
+        section_day_period[sec2] = {}
+        for _, row2 in df2.iterrows():
+            d2 = str(row2["Day"]).strip()
+            section_day_period[sec2][d2] = {}
+            for p2 in THEORY_PERIODS:
+                if p2 in df2.columns:
+                    section_day_period[sec2][d2][p2] = str(row2.get(p2, "----")).strip()
+
+    for day_name in DAY_ORDER:
+        for col in THEORY_PERIODS:
+            entries = []
+            for sec in sorted(section_day_period.keys()):
+                val = section_day_period[sec].get(day_name, {}).get(col, "----")
+                if val and val not in ("", "----", "nan"):
+                    entries.append(f"{val} Section {sec}")
+            if entries:
+                text = f"On {day_name} {col}: " + ", ".join(entries)
+                docs.append({
+                    "text":    text,
+                    "day":     day_name,
+                    "period":  col,
+                    "source":  "slot_summary",
+                    "section": "all",
+                })
+
+    slot_summary_count = sum(1 for d in docs if d.get("source") == "slot_summary")
+    print(f"  Slot-summary docs: {slot_summary_count} (one per day×period)")
 
     # ── Room assignment CSV ───────────────────────────────────────────────────
     room_csv = output_dir / "room_assignment.csv"
@@ -472,6 +569,19 @@ def build_index(sem_id: str = None):
     return index, docs, model
 
 
+def _is_full_schedule_query(query: str) -> bool:
+    """
+    Returns True if the query needs the FULL weekly schedule for a faculty.
+    For these queries, capping results at k=3 is wrong — we need all 5-6 day-docs.
+    """
+    q = query.lower()
+    return any(kw in q for kw in [
+        "workload", "schedule", "timetable", "how many", "total hours",
+        "how much", "weekly", "all classes", "full schedule", "compare",
+        "vs", "versus",
+    ])
+
+
 def retrieve(query: str, k: int = 5, sem_id: str = None, use_rerank: bool = True) -> list:
     """
     Retrieve top-k relevant timetable records for a query string.
@@ -535,6 +645,20 @@ def retrieve(query: str, k: int = 5, sem_id: str = None, use_rerank: bool = True
 
     # ── Step 3: search strategy ───────────────────────────────────────────────
     candidates = []
+
+    # Full-schedule shortcut: if a faculty filter is active and the query needs
+    # a complete weekly view, bypass vector search and return ALL matching docs.
+    # A faculty's full week is 5-6 day-docs — small enough to return entirely.
+    faculty_filter_active = bool(filters.get("faculty"))
+    is_full_schedule      = _is_full_schedule_query(query)
+
+    if faculty_filter_active and is_full_schedule and candidate_indices:
+        for i in candidate_indices:
+            result = {ke: v for ke, v in docs[i].items() if ke != "embedding"}
+            result["distance"] = 0.0
+            candidates.append(result)
+        # Skip reranking for full-schedule returns — order is already meaningful
+        return candidates
 
     if filters and len(candidate_indices) >= fetch_k:
         # 3a — filtered sub-index search

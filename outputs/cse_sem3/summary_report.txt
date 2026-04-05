@@ -5,28 +5,28 @@ Total theory/elective slots placed: 240
 Total fixed elective slots placed: 0
 Total lab slots placed: 48 (12 pairs x 2 periods x 2 sections = 48)
 Soft constraint violations:
-  same_subject_same_day: 0
+  same_subject_same_day: 1
   back_to_back_same_subject: 0
 
 Faculty Load Table
 faculty_id | name | total_hours | max_hours | status
-F01 | Prof. Ramesh Gupta | 12 | 12 | OK
-F02 | Prof. Sunita Rao | 12 | 12 | OK
-F03 | Prof. Vivek Nambiar | 12 | 12 | OK
-F04 | Prof. Aditi Sharma | 14 | 16 | OK
-F05 | Prof. Rajesh Menon | 10 | 16 | OK
-F06 | Prof. Neha Kapoor | 14 | 16 | OK
-F07 | Prof. Sanjay Bhat | 10 | 16 | OK
-F08 | Prof. Pallavi Das | 14 | 16 | OK
-F09 | Prof. Manoj Iyer | 10 | 16 | OK
-F10 | Prof. Rekha Joshi | 14 | 16 | OK
-F11 | Prof. Amith Hegde | 10 | 20 | OK
-F12 | Prof. Swathi Nair | 18 | 20 | OK
-F13 | Prof. Ganesh Kulkarni | 10 | 20 | OK
-F14 | Prof. Revathi Pillai | 18 | 20 | OK
-F15 | Prof. Naveen Shenoy | 10 | 20 | OK
-F16 | Prof. Suma Prasad | 16 | 20 | OK
-F17 | Prof. Dinesh Gowda | 16 | 20 | OK
-F18 | Prof. Aparna Murthy | 16 | 20 | OK
-F19 | Prof. Tarun Srinivas | 16 | 20 | OK
-F20 | Prof. Megha Reddy | 12 | 20 | OK
+F01 | Ramesh Gupta | 12 | 12 | OK
+F02 | Sunita Rao | 12 | 12 | OK
+F03 | Vivek Nambiar | 12 | 12 | OK
+F04 | Aditi Sharma | 14 | 16 | OK
+F05 | Rajesh Menon | 10 | 16 | OK
+F06 | Neha Kapoor | 14 | 16 | OK
+F07 | Sanjay Bhat | 10 | 16 | OK
+F08 | Pallavi Das | 14 | 16 | OK
+F09 | Manoj Iyer | 10 | 16 | OK
+F10 | Rekha Joshi | 14 | 16 | OK
+F11 | Amith Hegde | 10 | 20 | OK
+F12 | Swathi Nair | 18 | 20 | OK
+F13 | Ganesh Kulkarni | 10 | 20 | OK
+F14 | Revathi Pillai | 18 | 20 | OK
+F15 | Naveen Shenoy | 10 | 20 | OK
+F16 | Suma Prasad | 16 | 20 | OK
+F17 | Dinesh Gowda | 16 | 20 | OK
+F18 | Aparna Murthy | 16 | 20 | OK
+F19 | Tarun Srinivas | 16 | 20 | OK
+F20 | Megha Reddy | 12 | 20 | OK

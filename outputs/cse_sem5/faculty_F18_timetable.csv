@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,----,----,----,----,----,----
-Tuesday,----,----,----,----,----,----
-Wednesday,----,----,CYS (D+E),CYS (D+E),----,----
-Thursday,----,----,GTA (I+L),GTA (I+L),----,----
-Friday,----,----,----,----,----,----
+Monday,----,----,CYS (D+E),CYS (D+E),----,----
+Tuesday,GTA (I+L),GTA (I+L),----,----,----,----
+Wednesday,----,----,----,----,----,----
+Thursday,GTA (I+L),GTA (I+L),----,----,----,----
+Friday,----,----,CYS (D+E),CYS (D+E),----,----

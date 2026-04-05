@@ -197,10 +197,18 @@ def lock_labs(data_dir=DATA_DIR):
                 continue
 
             for period in range(period_start, period_end + 1):
+                # Use a human-readable label in the section grid so it
+                # appears as "Elective 1" / "Elective 2" in every CSV.
+                elective_label = (
+                    "Elective 1" if elective_group == "E1" else "Elective 2"
+                )
                 for section in sections:
-                    section_grid[section][day][period] = course_code
+                    section_grid[section][day][period] = elective_label
+                # Faculty and room grids keep the real course code (for
+                # conflict detection and faculty timetable output).
                 faculty_grid[faculty_id][day][period] = course_code
                 room_grid[room][day][period] = course_code
+
 
             elective_details.append(
                 {

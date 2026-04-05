@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,ML (E),----,ML (F),----,----,----
-Tuesday,----,ML (E),ML (F),----,ML LAB (C+L),ML LAB (C+L)
-Wednesday,----,ML (F),----,----,----,----
-Thursday,ML (E),----,----,----,----,----
-Friday,ML (E),ML (F),----,----,----,----
+Monday,----,ML (F),----,----,----,----
+Tuesday,----,----,----,ML (E),ML LAB (C+L),ML LAB (C+L)
+Wednesday,ML (F),----,ML (E),ML (F),----,----
+Thursday,----,----,ML (E),ML (F),----,----
+Friday,----,ML (E),----,----,----,----

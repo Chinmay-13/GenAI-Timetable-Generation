@@ -174,8 +174,10 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
     def get_faculty_schedule(faculty_id: str) -> str:
         """
         Get the full weekly schedule for a faculty member.
-        Input: faculty_id (e.g., F04)
-        Returns: schedule as formatted text
+        Input: faculty_id — the faculty ID string such as F01, F02, F03, F04, etc.
+               This is ALWAYS a faculty ID like F01, NEVER a section letter like A or B.
+               Example: faculty_id="F04"
+        Returns: full weekly schedule as formatted text
         """
         return _read_faculty_csv(faculty_id, output_dir=_out)
 

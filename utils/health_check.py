@@ -1,20 +1,21 @@
 """
 utils/health_check.py
 Verifies every dependency of the timetable system in one call.
+Accepts an optional sem_id so the UI can check per-semester paths.
 """
 from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 # Ensure project root is on sys.path when this file is imported standalone
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from config import DATA_DIR, OUTPUT_DIR, SECTIONS, resolve_output_path
+from config import DATA_DIR, OUTPUT_DIR, SECTIONS, get_sem_paths
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Expected files
@@ -54,10 +55,10 @@ def _check(ok: bool, msg_ok: str, msg_fail: str) -> dict:
     return {"ok": ok, "message": msg_ok if ok else msg_fail}
 
 
-def check_input_csvs() -> Dict[str, dict]:
+def check_input_csvs(data_dir: Path) -> Dict[str, dict]:
     results = {}
     for fname in REQUIRED_INPUT_CSVS:
-        path = DATA_DIR / fname
+        path = data_dir / fname
         results[fname] = _check(
             path.exists(),
             f"Found ({path})",
@@ -66,26 +67,28 @@ def check_input_csvs() -> Dict[str, dict]:
     return results
 
 
-def check_output_files() -> Dict[str, dict]:
+def check_output_files(output_dir: Path, sem_id: Optional[str] = None) -> Dict[str, dict]:
     results = {}
+    hint = f"python run_all.py --sem {sem_id}" if sem_id else "python run_all.py"
     for fname in REQUIRED_OUTPUT_FILES:
-        path = resolve_output_path(fname)
+        path = output_dir / fname
         results[fname] = _check(
             path.exists(),
-            f"Found",
-            f"MISSING — run python run_all.py",
+            "Found",
+            f"MISSING — run {hint}",
         )
     return results
 
 
-def check_rag_index() -> Dict[str, dict]:
+def check_rag_index(output_dir: Path, sem_id: Optional[str] = None) -> Dict[str, dict]:
     results = {}
+    hint = f"python src/phase5/rag_indexer.py --sem {sem_id}" if sem_id else "python src/phase5/rag_indexer.py"
     for fname in RAG_INDEX_FILES:
-        path = resolve_output_path(fname)
+        path = output_dir / fname
         results[fname] = _check(
             path.exists(),
             "Found",
-            "MISSING — run Rebuild RAG Index or python src/phase5/rag_indexer.py",
+            f"MISSING — run Rebuild RAG Index or {hint}",
         )
     return results
 
@@ -107,7 +110,7 @@ def check_packages() -> Dict[str, dict]:
         try:
             __import__(module)
             ok = True
-            msg_ok = f"Importable"
+            msg_ok = "Importable"
             msg_fail = ""
         except ImportError:
             ok = False
@@ -121,9 +124,15 @@ def check_packages() -> Dict[str, dict]:
 # Master check
 # ─────────────────────────────────────────────────────────────────────────────
 
-def check_system_health() -> Dict[str, object]:
+def check_system_health(sem_id: Optional[str] = None) -> Dict[str, object]:
     """
     Run all health checks and return a structured report.
+
+    Parameters
+    ----------
+    sem_id : str or None
+        If given, resolve input/output paths from the semester-specific dirs.
+        If None, fall back to the legacy flat DATA_DIR / OUTPUT_DIR.
 
     Return schema:
     {
@@ -139,10 +148,18 @@ def check_system_health() -> Dict[str, object]:
         }
     }
     """
+    if sem_id:
+        sem_paths = get_sem_paths(sem_id)
+        data_dir   = sem_paths.data_dir
+        output_dir = sem_paths.output_dir
+    else:
+        data_dir   = DATA_DIR
+        output_dir = OUTPUT_DIR
+
     report: Dict[str, object] = {
-        "input_csvs":   check_input_csvs(),
-        "output_files": check_output_files(),
-        "rag_index":    check_rag_index(),
+        "input_csvs":   check_input_csvs(data_dir),
+        "output_files": check_output_files(output_dir, sem_id),
+        "rag_index":    check_rag_index(output_dir, sem_id),
         "environment":  check_env(),
         "packages":     check_packages(),
     }
@@ -172,11 +189,18 @@ def check_system_health() -> Dict[str, object]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    report = check_system_health()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sem", default=None, help="Semester slug, e.g. cse_sem3")
+    args = parser.parse_args()
+
+    report = check_system_health(sem_id=args.sem)
     summary = report["summary"]
 
     print("\n═══════════════════════════════════════")
     print("   TIMETABLE SYSTEM — HEALTH CHECK")
+    if args.sem:
+        print(f"   Semester: {args.sem}")
     print("═══════════════════════════════════════")
 
     SECTIONS_ORDER = [

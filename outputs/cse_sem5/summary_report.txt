@@ -1,39 +1,39 @@
 TIMETABLE SUMMARY REPORT
 ========================
 Total sections scheduled: 12
-Total theory/elective slots placed: 192
-Total fixed elective slots placed: 48
+Total theory/elective slots placed: 240
+Total fixed elective slots placed: 96
 Total lab slots placed: 48 (12 pairs x 2 periods x 2 sections = 48)
 Soft constraint violations:
-  same_subject_same_day: 0
+  same_subject_same_day: 12
   back_to_back_same_subject: 0
 
 Faculty Load Table
 faculty_id | name | total_hours | max_hours | status
-F01 | Prof. Ashwin Patel | 12 | 12 | OK
-F02 | Prof. Jyoti Deshmukh | 12 | 12 | OK
-F03 | Prof. Raghav Acharya | 2 | 12 | OK
-F04 | Prof. Kavitha Nair | 10 | 16 | OK
-F05 | Prof. Prakash Hegde | 10 | 16 | OK
-F06 | Prof. Shilpa Rao | 10 | 16 | OK
-F07 | Prof. Varun Kulkarni | 10 | 16 | OK
-F08 | Prof. Anitha Menon | 10 | 16 | OK
-F09 | Prof. Bharath Iyer | 10 | 16 | OK
-F10 | Prof. Deepika Gowda | 10 | 20 | OK
-F11 | Prof. Karthik Shenoy | 10 | 20 | OK
-F12 | Prof. Lavanya Prasad | 10 | 20 | OK
-F13 | Prof. Mohan Das | 10 | 20 | OK
-F14 | Prof. Nivedita Sharma | 10 | 20 | OK
-F15 | Prof. Pranav Reddy | 10 | 20 | OK
-F16 | Prof. Rashmi Pillai | 12 | 20 | OK
-F17 | Prof. Suraj Murthy | 12 | 20 | OK
-F18 | Prof. Veena Bhat | 4 | 20 | OK
-F19 | Prof. Harini Venkat | 2 | 20 | OK
-F20 | Prof. Aditya Kamath | 2 | 20 | OK
-F21 | Prof. Sowmya Hegde | 2 | 20 | OK
-F22 | Prof. Ravi Shankar | 2 | 20 | OK
-F23 | Prof. Priya Nambiar | 2 | 20 | OK
-F24 | Prof. Girish Rao | 2 | 20 | OK
-F25 | Prof. Meghana Das | 2 | 20 | OK
-F26 | Prof. Sachin Kulkarni | 2 | 20 | OK
-F27 | Prof. Divya Shetty | 2 | 20 | OK
+F01 | Ashwin Patel | 12 | 12 | OK
+F02 | Jyoti Deshmukh | 12 | 12 | OK
+F03 | Raghav Acharya | 4 | 12 | OK
+F04 | Kavitha Nair | 10 | 16 | OK
+F05 | Prakash Hegde | 10 | 16 | OK
+F06 | Shilpa Rao | 10 | 16 | OK
+F07 | Varun Kulkarni | 10 | 16 | OK
+F08 | Anitha Menon | 10 | 16 | OK
+F09 | Bharath Iyer | 10 | 16 | OK
+F10 | Deepika Gowda | 10 | 20 | OK
+F11 | Karthik Shenoy | 10 | 20 | OK
+F12 | Lavanya Prasad | 10 | 20 | OK
+F13 | Mohan Das | 10 | 20 | OK
+F14 | Nivedita Sharma | 10 | 20 | OK
+F15 | Pranav Reddy | 10 | 20 | OK
+F16 | Rashmi Pillai | 12 | 20 | OK
+F17 | Suraj Murthy | 12 | 20 | OK
+F18 | Veena Bhat | 8 | 20 | OK
+F19 | Harini Venkat | 4 | 20 | OK
+F20 | Aditya Kamath | 4 | 20 | OK
+F21 | Sowmya Hegde | 4 | 20 | OK
+F22 | Ravi Shankar | 4 | 20 | OK
+F23 | Priya Nambiar | 4 | 20 | OK
+F24 | Girish Rao | 4 | 20 | OK
+F25 | Meghana Das | 4 | 20 | OK
+F26 | Sachin Kulkarni | 4 | 20 | OK
+F27 | Divya Shetty | 4 | 20 | OK

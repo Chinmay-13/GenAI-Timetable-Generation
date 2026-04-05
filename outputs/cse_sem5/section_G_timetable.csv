@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,CA (RP),ML (VK),DBMS (MD),----,----,----
-Tuesday,ML (VK),DBMS (MD),CA (RP),----,ML LAB,ML LAB
-Wednesday,CA (RP),ML (VK),NLP (HV),NLP (HV),----,----
-Thursday,CA (RP),DBMS (MD),ES (SK),ES (SK),----,----
-Friday,DBMS (MD),ML (VK),----,----,DBMS LAB,DBMS LAB
+Monday,CA (RP),DBMS (MD),Elective 1,Elective 1,----,----
+Tuesday,Elective 2,Elective 2,DBMS (MD),ML (VK),ML LAB,ML LAB
+Wednesday,CA (RP),ML (VK),DBMS (MD),CA (RP),----,----
+Thursday,Elective 2,Elective 2,DBMS (MD),ML (VK),----,----
+Friday,CA (RP),ML (VK),Elective 1,Elective 1,DBMS LAB,DBMS LAB

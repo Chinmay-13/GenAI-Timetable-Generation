@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,PROB (A),PROB (B),PROB (C),----,----,----
-Tuesday,PROB (B),PROB (A),----,----,----,----
-Wednesday,PROB (A),PROB (C),----,----,----,----
-Thursday,PROB (B),PROB (C),----,----,----,----
-Friday,PROB (A),PROB (B),PROB (C),----,----,----
+Monday,----,PROB (A),PROB (C),PROB (B),----,----
+Tuesday,PROB (A),PROB (C),PROB (B),----,----,----
+Wednesday,----,PROB (A),PROB (B),PROB (C),----,----
+Thursday,PROB (C),PROB (B),PROB (A),----,----,----
+Friday,----,----,----,----,----,----

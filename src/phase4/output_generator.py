@@ -144,6 +144,9 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
                 elif isinstance(value, str) and value.endswith("_LAB"):
                     course = value.replace("_LAB", "")
                     cell = f"{sn.get(course, course)} LAB"
+                elif isinstance(value, str) and value.startswith("Elective"):
+                    # Elective label stored verbatim — no faculty initials appended.
+                    cell = value
                 else:
                     elective_info = elective_lookup.get((section, day, p))
                     if elective_info is not None:
@@ -155,6 +158,7 @@ def generate_outputs(result=None, data_dir=DATA_DIR, output_dir=OUTPUT_DIR):
                     else:
                         cell = f"{sn.get(value, value)} ({faculty_initials[faculty_id]})"
                 row[f"P{p}"] = cell
+
             rows.append(row)
 
         df = pd.DataFrame(rows, columns=["Day"] + period_cols)

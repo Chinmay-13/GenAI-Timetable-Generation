@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,----,DBMS (I),DBMS (J),----,----,----
-Tuesday,----,DBMS (J),DBMS (I),----,----,----
-Wednesday,DBMS (I),DBMS (J),----,----,----,----
-Thursday,DBMS (I),DBMS (J),----,----,----,----
-Friday,----,----,----,----,DBMS LAB (G+J),DBMS LAB (G+J)
+Monday,DBMS (I),DBMS (J),----,----,----,----
+Tuesday,----,----,----,----,----,----
+Wednesday,DBMS (I),----,DBMS (I),DBMS (J),----,----
+Thursday,----,----,DBMS (J),----,----,----
+Friday,DBMS (I),DBMS (J),----,----,DBMS LAB (G+J),DBMS LAB (G+J)
