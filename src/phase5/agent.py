@@ -264,12 +264,27 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
         absent_faculty: Faculty ID who is absent, e.g. 'F03'.
         substitute_faculty: Faculty ID who will substitute, e.g. 'F07'.
         reason: Short reason text, e.g. 'Lab coverage for DDCO'.
+        On the FIRST call this writes a preview to a temp folder and returns
+        a diff summary — no live files are changed yet.
+        If a preview already exists, returns immediately with a message to
+        call apply_pending_preview to finalise (do not re-write).
         Validates substitute availability before writing.
-        Updates section CSV, faculty CSVs, summary report, and RAG index.
-        Creates backup and logs the operation.
         """
-        p_start, p_end = int(period_start), int(period_end)
-        absent, substitute = absent_faculty.strip().upper(), substitute_faculty.strip().upper()
+        from src.phase5.sync_manager import get_active_preview, preview_schedule_change
+
+        # Guard: if a preview already exists, don't re-write
+        existing = get_active_preview(sem_id)
+        if existing:
+            return (
+                f"A preview already exists (op_id={existing['op_id']}). "
+                "Call apply_pending_preview to finalise, "
+                "or discard_pending_preview to cancel before creating a new one."
+            )
+
+        p_start  = int(period_start)
+        p_end    = int(period_end)
+        absent   = absent_faculty.strip().upper()
+        substitute = substitute_faculty.strip().upper()
 
         # Validate substitute availability
         if not _is_faculty_free(substitute, day, p_start, p_end, output_dir=_out):
@@ -278,10 +293,8 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
                 f"P{p_start}-P{p_end}."
             )
 
-        # Delegate ALL writes to sync_manager
         try:
-            from src.phase5.sync_manager import commit_schedule_change
-            result = commit_schedule_change({
+            result = preview_schedule_change({
                 "section":          section,
                 "day":              day,
                 "period_start":     p_start,
@@ -291,9 +304,14 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
                 "change_type":      "substitute",
                 "reason":           reason,
             }, sem_id=sem_id)
-            return result["message"]
+            return (
+                f"{result['diff_summary']}\n\n"
+                f"{result['message']}\n"
+                "Present this preview to the user and ask them to confirm "
+                "before calling apply_pending_preview."
+            )
         except Exception as exc:
-            return f"Commit failed (rolled back): {exc}"
+            return f"Preview generation failed: {exc}"
 
     @tool
     def list_agent_ops(input_str: str) -> str:
@@ -369,6 +387,40 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
         out_path = ops_dir / f"summary_{_dt.now().strftime('%Y%m%dT%H%M%S')}.txt"
         out_path.write_text(summary_text, encoding="utf-8")
         return summary_text
+
+    @tool
+    def apply_pending_preview(input_str: str) -> str:
+        """
+        Finalise a pending substitute preview by promoting temp files to live outputs.
+        Call this ONLY after the user has explicitly confirmed the proposed change.
+        Input: any string (ignored) — the active preview is detected automatically.
+        Rebuilds faculty CSVs, summary report, and RAG index after committing.
+        """
+        from src.phase5.sync_manager import get_active_preview, commit_from_preview
+        meta = get_active_preview(sem_id)
+        if not meta:
+            return "No pending preview found. Nothing to apply."
+        try:
+            result = commit_from_preview(meta["op_id"], sem_id=sem_id)
+            return result["message"]
+        except Exception as exc:
+            return f"Apply failed (rolled back): {exc}"
+
+    @tool
+    def discard_pending_preview(input_str: str) -> str:
+        """
+        Discard a pending substitute preview without making any live changes.
+        Input: any string (ignored) — the active preview is detected automatically.
+        """
+        from src.phase5.sync_manager import get_active_preview, discard_preview
+        meta = get_active_preview(sem_id)
+        if not meta:
+            return "No pending preview to discard."
+        discard_preview(meta["op_id"], sem_id=sem_id)
+        return (
+            f"Preview discarded (op_id={meta['op_id']}). "
+            "No live files were changed."
+        )
 
     @tool
     def get_absent_periods(faculty_id: str, day: str) -> str:
@@ -959,6 +1011,8 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
         list_agent_ops,
         rollback_last_operation,
         generate_session_summary,
+        apply_pending_preview,
+        discard_pending_preview,
         get_absent_periods,
         find_free_rooms,
         get_faculty_workload,

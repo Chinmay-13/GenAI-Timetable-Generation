@@ -559,3 +559,313 @@ def rollback_change(operation_id: str, sem_id: str = None) -> str:
     )
     logger.info(summary)
     return summary
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Temp-folder preview API
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _temp_root(sem_id: str = None) -> Path:
+    """Return the temp-preview root directory for this semester."""
+    out = get_sem_paths(sem_id).output_dir if sem_id else OUTPUT_DIR
+    return out / "agent_ops" / "temp"
+
+
+def _build_preview_faculty_csv(
+    faculty_id: str,
+    patched_section: str,
+    patched_df,   # pd.DataFrame — already-patched section rows
+    out: Path,
+    temp_dir: Path,
+    sem_id: str = None,
+) -> None:
+    """
+    Write a faculty timetable CSV into *temp_dir* using *patched_df* for
+    *patched_section* and live CSVs for all other sections.
+    Does NOT touch live output files.
+    """
+    fid = faculty_id.strip().upper()
+    period_cols = [f"P{p}" for p in PERIODS]
+
+    grid: Dict[str, Dict[str, str]] = {
+        day: {f"P{p}": "----" for p in PERIODS}
+        for day in DAYS
+    }
+
+    for section in SECTIONS:
+        if section == patched_section:
+            df_sec = patched_df
+        else:
+            sec_path = _section_csv_path(section, out)
+            if not sec_path.exists():
+                sec_path = out / f"section_{section}_timetable.csv"
+            if not sec_path.exists():
+                continue
+            try:
+                df_sec = pd.read_csv(sec_path)
+            except Exception:
+                continue
+
+        for _, row in df_sec.iterrows():
+            day = str(row["Day"]).strip()
+            if day not in DAYS:
+                continue
+            for p in PERIODS:
+                col = f"P{p}"
+                cell = str(row.get(col, "----")).strip()
+                if _cell_belongs_to_faculty(cell, fid):
+                    base = cell.split("→")[0].strip()
+                    grid[day][col] = f"{base} ({section})"
+
+    rows = []
+    for day in DAYS:
+        row_data = {"Day": day}
+        for col in period_cols:
+            row_data[col] = grid[day][col]
+        rows.append(row_data)
+
+    df_out = pd.DataFrame(rows, columns=["Day"] + period_cols)
+    _atomic_write_csv(temp_dir / f"faculty_{fid}_timetable.csv", df_out)
+    logger.info("Built preview faculty CSV: faculty_%s_timetable.csv (temp)", fid)
+
+
+def preview_schedule_change(change_dict: dict, sem_id: str = None) -> dict:
+    """
+    Write proposed changes to a temp folder WITHOUT touching live outputs.
+
+    Creates  outputs/{sem_id}/agent_ops/temp/{op_id}/  containing:
+      section_{X}_timetable.csv        — patched section view
+      faculty_{ABSENT}_timetable.csv   — absent faculty (gap shown)
+      faculty_{SUB}_timetable.csv      — substitute (new assignment shown)
+      .pending                         — JSON metadata marker
+
+    Returns
+    -------
+    dict with keys: op_id, temp_dir, diff_summary, message
+    """
+    missing = _REQUIRED_KEYS - change_dict.keys()
+    if missing:
+        raise ValueError(f"preview_schedule_change: missing keys {missing}")
+
+    out: Path = get_sem_paths(sem_id).output_dir if sem_id else OUTPUT_DIR
+
+    section     = str(change_dict["section"]).upper()
+    day         = str(change_dict["day"]).strip()
+    p_start     = int(change_dict["period_start"])
+    p_end       = int(change_dict["period_end"])
+    orig_fac    = str(change_dict["original_faculty"]).upper()
+    new_fac     = str(change_dict["new_faculty"]).upper()
+    change_type = str(change_dict["change_type"])
+    reason      = str(change_dict.get("reason", ""))
+
+    sec_path = _section_csv_path(section, out)
+    if not sec_path.exists():
+        sec_path = out / f"section_{section}_timetable.csv"
+    if not sec_path.exists():
+        raise ValueError(
+            f"Section CSV not found for section {section}. "
+            "Run run_all.py to generate outputs first."
+        )
+
+    import uuid as _uuid
+    import json as _json
+    op_id    = _uuid.uuid4().hex[:8]
+    ts       = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    temp_dir = _temp_root(sem_id) / op_id
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    # ── Patch section CSV in-memory ──────────────────────────────────────────
+    df       = pd.read_csv(sec_path)
+    row_mask = df["Day"].str.strip() == day
+    if not row_mask.any():
+        raise ValueError(f"Day '{day}' not found in section {section} timetable.")
+
+    pre_state = df[row_mask].to_csv(index=False)
+    for p in range(p_start, p_end + 1):
+        col = f"P{p}"
+        if col in df.columns:
+            current = str(df.loc[row_mask, col].values[0]).strip()
+            df.loc[row_mask, col] = f"{current}→{new_fac}"
+    post_state = df[row_mask].to_csv(index=False)
+
+    # ── Write preview files to temp dir ──────────────────────────────────────
+    _atomic_write_csv(temp_dir / f"section_{section}_timetable.csv", df)
+    _build_preview_faculty_csv(orig_fac, section, df, out, temp_dir, sem_id)
+    _build_preview_faculty_csv(new_fac,  section, df, out, temp_dir, sem_id)
+
+    # ── Write .pending marker ─────────────────────────────────────────────────
+    marker_data = {
+        "op_id":       op_id,
+        "timestamp":   ts,
+        "change_dict": dict(change_dict),
+        "pre_state":   pre_state,
+        "post_state":  post_state,
+        "sem_id":      sem_id,
+        "temp_dir":    str(temp_dir),
+    }
+    (temp_dir / ".pending").write_text(
+        _json.dumps(marker_data, indent=2), encoding="utf-8"
+    )
+
+    diff_lines = [
+        f"[PREVIEW] {change_type.upper()}: {new_fac} covers section {section} "
+        f"on {day} P{p_start}–P{p_end} (replacing {orig_fac}).",
+        "Patched cells (not yet committed):",
+    ]
+    for p in range(p_start, p_end + 1):
+        col = f"P{p}"
+        if col in df.columns:
+            diff_lines.append(f"  {col}: annotated →{new_fac}")
+
+    logger.info("Preview created: op_id=%s, temp_dir=%s", op_id, temp_dir)
+    return {
+        "op_id":        op_id,
+        "temp_dir":     str(temp_dir),
+        "diff_summary": "\n".join(diff_lines),
+        "message": (
+            f"Preview generated (op_id={op_id}). No live files changed. "
+            "Ask the user to confirm, then call apply_pending_preview."
+        ),
+    }
+
+
+def commit_from_preview(op_id: str, sem_id: str = None) -> dict:
+    """
+    Promote temp-folder preview files to live outputs and finalise.
+
+    Steps:
+      1. Backup live files.
+      2. Copy preview files → live output dir atomically.
+      3. Rebuild summary_report.txt and RAG index.
+      4. Log the operation.
+      5. Remove the temp folder.
+
+    Returns the same dict shape as commit_schedule_change.
+    Raises RuntimeError (with full rollback) on any write failure.
+    """
+    import json as _json
+    temp_dir = _temp_root(sem_id) / op_id
+    marker   = temp_dir / ".pending"
+
+    if not temp_dir.exists() or not marker.exists():
+        raise ValueError(f"No pending preview found for op_id={op_id!r}.")
+
+    meta        = _json.loads(marker.read_text(encoding="utf-8"))
+    change_dict = meta["change_dict"]
+    pre_state   = meta["pre_state"]
+    post_state  = meta["post_state"]
+
+    out: Path = get_sem_paths(sem_id).output_dir if sem_id else OUTPUT_DIR
+
+    section     = str(change_dict["section"]).upper()
+    day         = str(change_dict["day"]).strip()
+    p_start     = int(change_dict["period_start"])
+    p_end       = int(change_dict["period_end"])
+    orig_fac    = str(change_dict["original_faculty"]).upper()
+    new_fac     = str(change_dict["new_faculty"]).upper()
+    change_type = str(change_dict["change_type"])
+    reason      = str(change_dict.get("reason", ""))
+
+    # ── Backup live files first ───────────────────────────────────────────────
+    ts         = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backup_dir = out / "agent_ops" / "backups" / ts
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    backed_up: List[str] = []
+
+    def _bk(path: Path) -> None:
+        dst = _backup_file(path, backup_dir)
+        if dst:
+            backed_up.append(path.name)
+
+    _bk(_section_csv_path(section, out))
+    _bk(_faculty_csv_path(orig_fac, out))
+    _bk(_faculty_csv_path(new_fac,  out))
+    _bk(_summary_path(out))
+    logger.info("commit_from_preview: backup at %s (%s)", backup_dir, backed_up)
+
+    try:
+        # ── Copy preview files → live outputs ─────────────────────────────────
+        for preview_file in temp_dir.iterdir():
+            if preview_file.name.startswith("."):
+                continue  # skip .pending marker
+            dst = out / preview_file.name
+            shutil.copy2(preview_file, dst)
+            logger.info("Promoted preview file: %s", preview_file.name)
+
+        rebuild_summary_report(sem_id)
+
+    except Exception as exc:
+        _restore_backup(backup_dir, backed_up, out)
+        raise RuntimeError(
+            f"commit_from_preview failed — rolled back. Cause: {exc}"
+        ) from exc
+
+    # ── RAG re-index (best-effort) ────────────────────────────────────────────
+    rag_ok = _try_rebuild_rag(sem_id)
+
+    # ── Log operation ─────────────────────────────────────────────────────────
+    try:
+        log_path = log_operation(
+            action=change_type,
+            absent_faculty=orig_fac,
+            section_id=section,
+            day=day,
+            period_range=(p_start, p_end),
+            substitute_faculty=new_fac,
+            reasoning_chain=[reason] if reason else ["no reason provided"],
+            pre_state=pre_state,
+            post_state=post_state,
+            commit_result="SUCCESS",
+            backup_path=str(backup_dir),
+        )
+    except Exception as exc:
+        logger.error("Failed to log operation (non-fatal): %s", exc)
+        log_path = None
+
+    # ── Delete temp dir ───────────────────────────────────────────────────────
+    try:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        logger.info("Temp dir cleaned up: %s", temp_dir)
+    except Exception:
+        pass
+
+    msg = (
+        f"Committed {change_type}: {new_fac} covers section {section} "
+        f"on {day} P{p_start}-P{p_end} (replacing {orig_fac}). "
+        f"Faculty CSVs rebuilt. Summary updated. "
+        f"RAG {'refreshed' if rag_ok else 'not refreshed (deps missing)'}."
+    )
+    logger.info(msg)
+    return {
+        "success":       True,
+        "message":       msg,
+        "log_path":      str(log_path) if log_path else None,
+        "rag_refreshed": rag_ok,
+        "backup_dir":    str(backup_dir),
+    }
+
+
+def discard_preview(op_id: str, sem_id: str = None) -> None:
+    """Delete a pending preview temp folder without touching live files."""
+    temp_dir = _temp_root(sem_id) / op_id
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        logger.info("Preview discarded: op_id=%s", op_id)
+
+
+def get_active_preview(sem_id: str = None) -> Optional[dict]:
+    """
+    Return metadata of the active preview for *sem_id*, or None.
+    Scans outputs/{sem_id}/agent_ops/temp/ for .pending marker files.
+    Returns the first valid metadata dict found, or None if nothing pending.
+    """
+    import json as _json
+    root = _temp_root(sem_id)
+    if not root.exists():
+        return None
+    for marker in sorted(root.glob("*/.pending")):
+        try:
+            return _json.loads(marker.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+    return None

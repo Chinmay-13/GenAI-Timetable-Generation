@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,OS (K),OS (L),----,----,----,----
-Tuesday,----,----,OS (K),OS (L),----,----
-Wednesday,----,OS (K),OS (L),----,----,----
-Thursday,----,----,----,----,OS LAB (G+L),OS LAB (G+L)
-Friday,OS (K),OS (L),----,----,----,----
+Monday,----,----,OS (L),OS (K),----,----
+Tuesday,OS (K),----,----,----,----,----
+Wednesday,OS (L),OS (K),----,----,----,----
+Thursday,OS (L),OS (K),----,----,OS LAB (G+L),OS LAB (G+L)
+Friday,----,OS (L),----,----,----,----

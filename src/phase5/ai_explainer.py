@@ -152,15 +152,24 @@ def _history_block(history: Optional[List[Tuple[str, str]]]) -> str:
     return "\n".join(lines)
 
 
-def _try_direct_lookup(user_question: str) -> Optional[str]:
+def _try_direct_lookup(user_question: str, sem_id: str = None) -> Optional[str]:
     """
     If query mentions a faculty name or ID, read their CSV directly
     and return it as context. Returns None if no faculty detected.
+    sem_id is used to resolve the correct semester's data and output dirs.
     """
     q = user_question.lower()
 
+    if sem_id is not None:
+        from config import get_sem_paths as _gsp
+        _data_dir = _gsp(sem_id).data_dir
+        _out_dir  = _gsp(sem_id).output_dir
+    else:
+        _data_dir = config.DATA_DIR
+        _out_dir  = config.OUTPUT_DIR
+
     try:
-        faculty_df = pd.read_csv(config.DATA_DIR / "faculty.csv")
+        faculty_df = pd.read_csv(_data_dir / "faculty.csv")
     except Exception:
         return None
 
@@ -168,7 +177,6 @@ def _try_direct_lookup(user_question: str) -> Optional[str]:
     for _, row in faculty_df.iterrows():
         name_lower = str(row["name"]).lower()
         fid = str(row["faculty_id"]).strip()
-        # Match by name words (>3 chars) or faculty ID
         if any(word in q for word in name_lower.split() if len(word) > 3):
             matched_fid = fid
             break
@@ -179,8 +187,8 @@ def _try_direct_lookup(user_question: str) -> Optional[str]:
     if not matched_fid:
         return None
 
-    path = resolve_output_path(f"faculty_{matched_fid}_timetable.csv")
-    if not path or not path.exists():
+    path = _out_dir / f"faculty_{matched_fid}_timetable.csv"
+    if not path.exists():
         return None
 
     try:
@@ -205,38 +213,41 @@ def _try_direct_lookup(user_question: str) -> Optional[str]:
         return None
 
 
-def _fallback_answer(user_question: str, context: Dict) -> str:
+def _fallback_answer(user_question: str, context: Dict, sem_id: str = None) -> str:
     """
     Data-driven fallback when LLM is unavailable.
-    Reads from output CSVs directly instead of hardcoded strings.
+    Reads from sem_id-aware output CSVs directly instead of hardcoded paths.
     """
     q = user_question.lower()
+
+    if sem_id is not None:
+        from config import get_sem_paths as _gsp
+        _out_dir  = _gsp(sem_id).output_dir
+        _data_dir = _gsp(sem_id).data_dir
+    else:
+        _out_dir  = config.OUTPUT_DIR
+        _data_dir = config.DATA_DIR
 
     try:
         # Section timetable query
         for section in SECTIONS:
-            if f"section {section.lower()}" in q or \
-               f"section {section}" in q:
-                path = resolve_output_path(
-                    f"section_{section}_timetable.csv"
-                )
+            if f"section {section.lower()}" in q or f"section {section}" in q:
+                path = _out_dir / f"section_{section}_timetable.csv"
                 if path.exists():
                     return path.read_text(encoding="utf-8")
 
         # Faculty query by ID or name
-        faculty_df = pd.read_csv(config.DATA_DIR / "faculty.csv")
+        faculty_df = pd.read_csv(_data_dir / "faculty.csv")
         for _, row in faculty_df.iterrows():
-            fid = str(row["faculty_id"]).strip()
+            fid   = str(row["faculty_id"]).strip()
             fname = str(row["name"]).strip()
             if fid.lower() in q or fname.lower() in q:
-                path = resolve_output_path(
-                    f"faculty_{fid}_timetable.csv"
-                )
+                path = _out_dir / f"faculty_{fid}_timetable.csv"
                 if path.exists():
                     return path.read_text(encoding="utf-8")
 
         # Default: return summary report
-        path = resolve_output_path("summary_report.txt")
+        path = _out_dir / "summary_report.txt"
         if path.exists():
             return path.read_text(encoding="utf-8")
 
@@ -246,6 +257,14 @@ def _fallback_answer(user_question: str, context: Dict) -> str:
     return "Could not find relevant timetable information for your query."
 
 
+def clear_context_cache(sem_id: str = None) -> None:
+    """Clear the module-level context cache. sem_id=None clears everything."""
+    if sem_id:
+        _CONTEXT_CACHE.pop(sem_id, None)
+    else:
+        _CONTEXT_CACHE.clear()
+
+
 def explain(user_question: str,
             history: Optional[List[Tuple[str, str]]] = None,
             sem_id: str = None) -> str:
@@ -253,10 +272,10 @@ def explain(user_question: str,
     context = setup_context(sem_id=sem_id)
     llm = _get_llm(context)
     if llm is None:
-        return _fallback_answer(user_question, context)
+        return _fallback_answer(user_question, context, sem_id=sem_id)
 
     # Direct data lookup — inject actual CSV into prompt
-    direct_context = _try_direct_lookup(user_question)
+    direct_context = _try_direct_lookup(user_question, sem_id=sem_id)
 
     # Build system prompt with optional direct data
     system_prompt = context["system_prompt"]
@@ -279,13 +298,13 @@ def explain(user_question: str,
         if "exhausted" in str(e).lower() or "rate" in str(e).lower():
             return (
                 "⚠️ AI temporarily unavailable (rate limit).\n\n"
-                + _fallback_answer(user_question, context)
+                + _fallback_answer(user_question, context, sem_id=sem_id)
             )
         raise
     except Exception:
         pass
 
-    fallback = _fallback_answer(user_question, context)
+    fallback = _fallback_answer(user_question, context, sem_id=sem_id)
     return fallback if fallback.strip() else "Could not generate response. Please try again."
 
 

@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,DMGT (AS),PROB (RG),SE (VN),OS (RJ),CNS LAB,CNS LAB
-Tuesday,PROB (RG),SE (VN),OS (RJ),CNS (AS),----,----
-Wednesday,CNS (AS),PROB (RG),OS (RJ),DMGT (AS),----,----
-Thursday,SE (VN),DMGT (AS),PROB (RG),CNS (AS),OS LAB,OS LAB
-Friday,DMGT (AS),OS (RJ),SE (VN),CNS (AS),----,----
+Monday,DMGT (AS),SE (VN),PROB (RG),CNS (AS),CNS LAB,CNS LAB
+Tuesday,DMGT (AS),PROB (RG),SE (VN),OS (RJ),----,----
+Wednesday,OS (RJ),SE (VN),CNS (AS),PROB (RG),----,----
+Thursday,DMGT (AS),OS (RJ),SE (VN),CNS (AS),OS LAB,OS LAB
+Friday,DMGT (AS),OS (RJ),PROB (RG),CNS (AS),----,----

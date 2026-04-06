@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -77,6 +79,23 @@ def _init_state():
         st.session_state._agent_pending_instruction = None
     if "_agent_confirm_triggered" not in st.session_state:
         st.session_state._agent_confirm_triggered = False
+    if "_agent_preview_dir" not in st.session_state:
+        st.session_state._agent_preview_dir = None
+    if "_agent_preview_op_id" not in st.session_state:
+        st.session_state._agent_preview_op_id = None
+    if "_last_agent_wrote" not in st.session_state:
+        st.session_state._last_agent_wrote = False
+
+    # Orphan temp-folder cleanup (older than 24 h)
+    for _sem in list_available_semesters():
+        _tr = get_sem_paths(_sem).output_dir / "agent_ops" / "temp"
+        if _tr.exists():
+            for _mk in _tr.glob("*/.pending"):
+                try:
+                    if time.time() - _mk.stat().st_mtime > 86400:
+                        shutil.rmtree(_mk.parent, ignore_errors=True)
+                except Exception:
+                    pass
 
 
 _init_state()
@@ -360,7 +379,23 @@ def _render_sidebar():
             st.session_state.agent_output = ""
             st.session_state._rag_debug = {}
             st.cache_data.clear()
-            # Clear lru_caches in substitute.py (only output-file loaders have lru_cache now)
+            # Clear ai_explainer module-level context cache
+            try:
+                from src.phase5.ai_explainer import clear_context_cache
+                clear_context_cache()
+            except Exception:
+                pass
+            # Discard any active preview for the OLD semester before switching
+            try:
+                from src.phase5.sync_manager import get_active_preview, discard_preview
+                _prev_preview = get_active_preview(prev_sem)
+                if _prev_preview:
+                    discard_preview(_prev_preview["op_id"], prev_sem)
+            except Exception:
+                pass
+            st.session_state._agent_preview_dir = None
+            st.session_state._agent_preview_op_id = None
+            # Clear lru_caches in substitute.py
             try:
                 from src.phase5 import substitute as _sub
                 for fn in (
@@ -633,6 +668,19 @@ def _render_dashboard():
         st.info("assignments.csv not found in data directory.")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper — preview-aware CSV path resolution
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _resolve_csv_path(filename: str, sem_id: str, preview_dir=None) -> Path:
+    """Return the path to a CSV, preferring preview_dir when a preview exists."""
+    if preview_dir:
+        p = Path(preview_dir) / filename
+        if p.exists():
+            return p
+    return get_sem_paths(sem_id).output_dir / filename
+
+
 # =============================================================================
 # PAGE 2 — TIMETABLES
 # =============================================================================
@@ -648,12 +696,53 @@ def _render_timetables():
         _no_output_banner(sem_id)
         return
 
+    # ── Preview banner ────────────────────────────────────────────────────────
+    preview_meta = None
+    preview_dir  = None
+    preview_section = None
+    try:
+        from src.phase5.sync_manager import get_active_preview
+        preview_meta = get_active_preview(sem_id)
+        if preview_meta:
+            preview_dir     = preview_meta.get("temp_dir")
+            preview_section = str(preview_meta["change_dict"]["section"]).upper()
+    except Exception:
+        pass
+
+    if preview_meta:
+        cd = preview_meta["change_dict"]
+        st.warning(
+            f"⚠️ **PENDING CHANGE — Preview Mode** · Changes not yet committed.  "
+            f"Section **{preview_section}** on **{cd['day']}**, "
+            f"P{cd['period_start']}–P{cd['period_end']}: "
+            f"{cd['original_faculty']} → {cd['new_faculty']}",
+            icon="⚠️",
+        )
+        col_disc, _ = st.columns([1, 4])
+        if col_disc.button("🗑️ Discard Preview", key="tt_discard_preview"):
+            try:
+                from src.phase5.sync_manager import discard_preview
+                discard_preview(preview_meta["op_id"], sem_id)
+                st.session_state._agent_preview_dir = None
+                st.session_state._agent_preview_op_id = None
+                st.rerun()
+            except Exception as e:
+                st.error(f"Could not discard preview: {e}")
+
     tab_sec, tab_fac, tab_room = st.tabs(["By Section", "By Faculty", "Room Assignments"])
 
     # ── By Section ────────────────────────────────────────────────────────────
     with tab_sec:
         section = st.selectbox("Select Section", SECTIONS, key="tt_section")
-        df = _load_section_csv(sem_id, section)
+        # Use preview CSV for the affected section, live CSV for all others
+        _is_preview_sec = bool(preview_dir and section == preview_section)
+        _sec_path = _resolve_csv_path(
+            f"section_{section}_timetable.csv", sem_id,
+            preview_dir if _is_preview_sec else None,
+        )
+        if _is_preview_sec:
+            st.info("📋 Showing **preview** (proposed change — not yet committed).")
+        df = pd.read_csv(_sec_path) if _sec_path.exists() else None
         if df is None:
             st.warning(f"No timetable for section {section}.")
         else:
@@ -679,7 +768,19 @@ def _render_timetables():
             ]
             chosen_fac = st.selectbox("Select Faculty", fac_options, key="tt_faculty")
             fid = chosen_fac.split(" — ")[0].strip()
-            fdf = _load_faculty_csv(sem_id, fid)
+            # Use preview CSV for affected faculty IDs
+            _affected_fids = (
+                {preview_meta["change_dict"]["original_faculty"].upper(),
+                 preview_meta["change_dict"]["new_faculty"].upper()}
+                if preview_meta else set()
+            )
+            _fac_path = _resolve_csv_path(
+                f"faculty_{fid}_timetable.csv", sem_id,
+                preview_dir if fid.upper() in _affected_fids else None,
+            )
+            if fid.upper() in _affected_fids and preview_dir:
+                st.info("📋 Showing **preview** (proposed change — not yet committed).")
+            fdf = pd.read_csv(_fac_path) if _fac_path.exists() else None
             if fdf is None:
                 st.warning(f"No timetable for {fid}.")
             else:
@@ -1106,26 +1207,28 @@ def _render_ai_agent():
     sem_paths = get_sem_paths(sem_id)
     out = sem_paths.output_dir
 
-    # ── Handle pending confirmation (must run before any UI rendering) ─────────
-    if st.session_state.get("_agent_confirm") and st.session_state.get("_agent_pending_instruction"):
-        st.session_state._agent_confirm = False
-        confirm_instruction = (
-            st.session_state._agent_pending_instruction
-            + "\n\nYes, proceed and commit the change."
-        )
-        st.session_state._agent_pending_instruction = None
-        with st.spinner("Agent committing change…"):
+    # ── Handle pending confirmation (direct commit — no LLM re-run) ────────────
+    if st.session_state.get("_agent_confirm") and st.session_state.get("_agent_preview_op_id"):
+        op_id = st.session_state._agent_preview_op_id
+        st.session_state._agent_confirm        = False
+        st.session_state._agent_preview_op_id  = None
+        st.session_state._agent_preview_dir    = None
+        with st.spinner("Committing change…"):
             try:
-                from src.phase5.agent import create_timetable_agent
-                agent = create_timetable_agent(sem_id=sem_id)
-                if agent:
-                    result = agent({"input": confirm_instruction})
-                    st.session_state.agent_output = result.get("output", "")
-                    st.cache_data.clear()  # refresh timetable displays
+                from src.phase5.sync_manager import commit_from_preview
+                result = commit_from_preview(op_id, sem_id=sem_id)
+                st.session_state.agent_output    = result["message"]
+                st.session_state._last_agent_wrote = True
+                st.cache_data.clear()
             except Exception as e:
                 st.warning("⚠️ Commit failed. Check timetable generation.")
                 with st.expander("Technical detail"):
                     st.code(str(e))
+
+    # ── Flush the _last_agent_wrote flag (cache already cleared above) ─────────
+    if st.session_state.get("_last_agent_wrote"):
+        st.session_state._last_agent_wrote = False
+        st.cache_data.clear()
 
     st.title("🤖 AI Agent")
 
@@ -1186,6 +1289,16 @@ def _render_ai_agent():
 
                     st.session_state.agent_output = output
 
+                    # ── Detect if agent wrote a preview ───────────────────────
+                    try:
+                        from src.phase5.sync_manager import get_active_preview
+                        _pm = get_active_preview(sem_id)
+                        if _pm:
+                            st.session_state._agent_preview_op_id = _pm["op_id"]
+                            st.session_state._agent_preview_dir   = _pm.get("temp_dir")
+                    except Exception:
+                        pass
+
                     st.markdown("### Agent Response")
                     st.markdown(
                         f'<div style="background:#f8fafc;border:1px solid #e2e8f0;'
@@ -1198,16 +1311,18 @@ def _render_ai_agent():
                             for step in reasoning:
                                 st.caption(f"• {step}")
 
-                    # ── Confirm button if agent is proposing a commit ────────────────
+                    # ── Confirm button if agent is proposing a commit ──────────
+                    from src.phase5.sync_manager import get_active_preview as _gap
+                    _active_preview = _gap(sem_id)
                     wants_commit = any(kw in output.lower() for kw in [
                         "confirm", "proceed", "shall i commit", "commit the substitute",
                         "do you want me to", "please confirm", "ready to commit",
-                        "should i commit", "want me to apply",
+                        "should i commit", "want me to apply", "apply_pending_preview",
                     ])
-                    if wants_commit:
+                    if wants_commit or _active_preview:
                         st.warning(
                             "⚠️ **Agent is proposing a schedule change.** "
-                            "Review the plan above, then confirm:"
+                            "Review the preview above, then confirm:"
                         )
                         col_yes, col_no = st.columns(2)
                         if col_yes.button(
@@ -1215,14 +1330,20 @@ def _render_ai_agent():
                             type="primary",
                             key="agent_confirm_yes",
                         ):
-                            # Store the instruction NOW (before rerun wipes widget state)
-                            st.session_state._agent_pending_instruction = instruction
+                            if _active_preview:
+                                st.session_state._agent_preview_op_id = _active_preview["op_id"]
+                                st.session_state._agent_preview_dir   = _active_preview.get("temp_dir")
                             st.session_state._agent_confirm = True
                             st.rerun()
                         if col_no.button(
                             "❌ No, cancel",
                             key="agent_confirm_no",
                         ):
+                            if _active_preview:
+                                from src.phase5.sync_manager import discard_preview as _dp
+                                _dp(_active_preview["op_id"], sem_id)
+                            st.session_state._agent_preview_op_id = None
+                            st.session_state._agent_preview_dir   = None
                             st.info("Change cancelled.")
                             st.session_state._agent_pending_instruction = None
                             st.session_state.agent_output = ""

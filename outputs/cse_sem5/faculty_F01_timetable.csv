@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,CA (B),CA (A),----,----,----,----
-Tuesday,----,----,CA (A),CA (B),----,----
-Wednesday,CA (C),CA (A),CA (B),CA (C),----,----
+Monday,CA (A),CA (B),----,----,----,----
+Tuesday,----,----,CA (B),CA (A),----,----
+Wednesday,CA (C),CA (B),CA (A),CA (C),----,----
 Thursday,----,----,CA (A),CA (C),----,----
-Friday,CA (C),CA (B),----,----,----,----
+Friday,CA (B),CA (C),----,----,----,----

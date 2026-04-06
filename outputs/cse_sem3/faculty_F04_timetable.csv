@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,DMGT (A),----,CNS (B),----,CNS LAB (A+D),CNS LAB (A+D)
-Tuesday,----,CNS (B),----,CNS (A),----,----
-Wednesday,CNS (A),CNS (B),----,DMGT (A),----,----
-Thursday,----,DMGT (A),----,CNS (A),----,----
+Monday,DMGT (A),----,----,CNS (A),CNS LAB (A+D),CNS LAB (A+D)
+Tuesday,DMGT (A),----,CNS (B),----,----,----
+Wednesday,CNS (B),----,CNS (A),----,----,----
+Thursday,DMGT (A),----,CNS (B),CNS (A),----,----
 Friday,DMGT (A),----,CNS (B),CNS (A),----,----

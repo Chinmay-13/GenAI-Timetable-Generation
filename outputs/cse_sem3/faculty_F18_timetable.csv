@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,DMGT (F),SE (F),SE (E),SE (D),----,----
-Tuesday,SE (D),SE (E),----,DMGT (F),----,----
-Wednesday,SE (D),SE (E),----,SE (F),----,----
-Thursday,DMGT (F),----,SE (F),SE (D),----,----
-Friday,DMGT (F),----,SE (F),SE (E),----,----
+Monday,SE (E),SE (F),SE (D),DMGT (F),----,----
+Tuesday,SE (D),----,SE (E),SE (F),----,----
+Wednesday,SE (D),SE (E),----,DMGT (F),----,----
+Thursday,DMGT (F),----,SE (D),SE (F),----,----
+Friday,SE (F),SE (E),----,DMGT (F),----,----
