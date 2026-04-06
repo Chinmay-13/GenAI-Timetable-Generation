@@ -174,24 +174,20 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
     def get_faculty_schedule(faculty_id: str) -> str:
         """
         Get the full weekly schedule for a faculty member.
-        Input: faculty_id — the faculty ID string such as F01, F02, F03, F04, etc.
-               This is ALWAYS a faculty ID like F01, NEVER a section letter like A or B.
-               Example: faculty_id="F04"
-        Returns: full weekly schedule as formatted text
+        faculty_id: Faculty ID to look up, e.g. 'F01', 'F03'.
+                    This is ALWAYS a faculty ID like F01, NEVER a section letter like A or B.
+        Returns: full weekly schedule as formatted text.
         """
         return _read_faculty_csv(faculty_id, output_dir=_out)
 
     @tool
-    def find_free_slots(faculty_id_and_day: str) -> str:
+    def find_free_slots(faculty_id: str, day: str) -> str:
         """
         Find free periods for a faculty on a given day.
-        Input: "faculty_id,day" e.g. "F04,Monday"
-        Returns: list of free periods
+        faculty_id: Faculty ID to look up, e.g. 'F01', 'F03'.
+        day: Day of the week, e.g. 'Monday', 'Tuesday'.
+        Returns: list of free periods.
         """
-        parts = [p.strip() for p in faculty_id_and_day.split(",", 1)]
-        if len(parts) != 2:
-            return "Input must be 'faculty_id,day' e.g. 'F04,Monday'"
-        faculty_id, day = parts
         path = _rop(f"faculty_{faculty_id.upper()}_timetable.csv")
         try:
             df = pd.read_csv(path)
@@ -222,18 +218,15 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
             return "Summary report not found. Run run_all.py first."
 
     @tool
-    def find_substitute(absent_faculty_and_day: str) -> str:
+    def find_substitute(faculty_id: str, day: str) -> str:
         """
         Find a substitute for an absent faculty member.
-        Input: "faculty_id,day" e.g. "F04,Monday"
+        faculty_id: Faculty ID to look up, e.g. 'F01', 'F03'.
+        day: Day of the week, e.g. 'Monday', 'Tuesday'.
         Returns: substitute suggestions.
         For lab periods (P5-P6) the full 2-period block is always treated
         atomically — only candidates free for both P5 and P6 are shown.
         """
-        parts = [p.strip() for p in absent_faculty_and_day.split(",", 1)]
-        if len(parts) != 2:
-            return "Input must be 'faculty_id,day' e.g. 'F04,Monday'"
-        faculty_id, day = parts
         try:
             from src.phase5.substitute import find_substitute as _find_sub
             result = _find_sub(faculty_id, day, sem_id=sem_id)
@@ -369,24 +362,19 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
         return summary_text
 
     @tool
-    def get_absent_periods(input_str: str) -> str:
+    def get_absent_periods(faculty_id: str, day: str) -> str:
         """
         Get the actual periods a faculty member teaches on a given day.
-        Input format: "faculty_id,day"
-        Example: "F01,Monday"
+        faculty_id: Faculty ID to look up, e.g. 'F01', 'F03'.
+        day: Day of the week, e.g. 'Monday', 'Tuesday'.
         Returns the specific periods they are scheduled to teach.
         Use this BEFORE commit_substitute to know which periods to cover.
         """
-        parts = [p.strip() for p in input_str.split(",", 1)]
-        if len(parts) < 2:
-            return "Error: provide faculty_id,day"
-        fid, day = parts
-
+        fid = faculty_id.strip().upper()
         path = _rop(f"faculty_{fid}_timetable.csv")
         if not path or not Path(path).exists():
             return f"No timetable found for {fid}"
 
-        import pandas as pd
         df = pd.read_csv(path)
         row = df[df["Day"].str.strip() == day.strip()]
         if row.empty:
@@ -492,14 +480,14 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
 
     # ── TOOL 7 — get_faculty_workload ────────────────────────────────────────
     @tool
-    def get_faculty_workload(input_str: str) -> str:
+    def get_faculty_workload(faculty_id: str) -> str:
         """
         Get total workload for a faculty member this week.
-        Input: faculty_id (e.g. "F04") or part of their name (e.g. "Sharma")
+        faculty_id: Faculty ID to look up, e.g. 'F01', 'F03'. Can also be a partial name like 'Sharma'.
         Returns: total hours, day-by-day breakdown, courses taught, and
                  whether they are over their weekly cap.
         """
-        query = input_str.strip().upper()
+        query = faculty_id.strip().upper()
         import pandas as _pd
         from config import DATA_DIR as _DATA_DIR, MAX_HOURS as _MAX_HOURS
         from config import resolve_output_path as _rop
@@ -559,16 +547,15 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
 
     # ── TOOL 8 — get_free_faculty ────────────────────────────────────────────
     @tool
-    def get_free_faculty(input_str: str) -> str:
+    def get_free_faculty(day: str, period: str) -> str:
         """
         Find all faculty with no class in a given day + period slot.
-        Input format: "day,period"  e.g. "Monday,3" or "Tuesday,P2"
+        day: Day of the week, e.g. 'Monday', 'Tuesday'.
+        period: Period number, e.g. '3' or 'P3'.
         Returns: list of free faculty with their designation.
         """
-        parts = [p.strip() for p in input_str.split(",", 1)]
-        if len(parts) != 2:
-            return "Input must be 'day,period' e.g. 'Monday,3'"
-        day_raw, period_raw = parts
+        day_raw = day
+        period_raw = period
         period_str = period_raw.upper().lstrip("P")
         try:
             period_int = int(period_str)
@@ -843,18 +830,17 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
 
     # ── TOOL 12 — simulate_substitute ───────────────────────────────────────
     @tool
-    def simulate_substitute(input_str: str) -> str:
+    def simulate_substitute(faculty_id: str, day: str, period: str) -> str:
         """
         Preview the top substitute candidates for a faculty on a given day/period.
         DOES NOT commit any changes — simulation only.
-        Input format: "faculty_id,day,period"  e.g. "F04,Monday,3"
+        faculty_id: Faculty ID to look up, e.g. 'F01', 'F03'.
+        day: Day of the week, e.g. 'Monday', 'Tuesday'.
+        period: Period number, e.g. '3' or 'P3'.
         Returns: top 3 candidates with match reasons and load info.
         Clearly states this is a preview — use commit_substitute to apply.
         """
-        parts = [p.strip() for p in input_str.split(",", 2)]
-        if len(parts) < 3:
-            return "Input must be 'faculty_id,day,period' e.g. 'F04,Monday,3'"
-        fid, day_raw, period_raw = parts
+        fid, day_raw, period_raw = faculty_id, day, period
         period_str = period_raw.upper().lstrip("P")
         try:
             period_int = int(period_str)
