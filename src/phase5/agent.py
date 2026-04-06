@@ -246,21 +246,30 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
             return f"Error finding substitute: {e}"
 
     @tool
-    def commit_substitute(input_str: str) -> str:
+    def commit_substitute(
+        section: str,
+        day: str,
+        period_start: int,
+        period_end: int,
+        absent_faculty: str,
+        substitute_faculty: str,
+        reason: str,
+    ) -> str:
         """
         Commit a substitute teacher assignment to the timetable.
-        Input format: "section,day,period_start,period_end,absent_faculty,
-                       substitute_faculty,reason"
-        Example: "A,Monday,5,6,F03,F07,Lab coverage for DDCO"
+        section: Section letter, e.g. 'A', 'B', 'C'.
+        day: Day of the week, e.g. 'Monday', 'Tuesday'.
+        period_start: Starting period number (integer), e.g. 1, 5.
+        period_end: Ending period number (integer), e.g. 1, 6.
+        absent_faculty: Faculty ID who is absent, e.g. 'F03'.
+        substitute_faculty: Faculty ID who will substitute, e.g. 'F07'.
+        reason: Short reason text, e.g. 'Lab coverage for DDCO'.
         Validates substitute availability before writing.
         Updates section CSV, faculty CSVs, summary report, and RAG index.
         Creates backup and logs the operation.
         """
-        parts = [p.strip() for p in input_str.split(",", 6)]
-        if len(parts) < 7:
-            return "Error: expected 7 comma-separated fields."
-        section, day, p_start, p_end, absent, substitute, reason = parts
-        p_start, p_end = int(p_start), int(p_end)
+        p_start, p_end = int(period_start), int(period_end)
+        absent, substitute = absent_faculty.strip().upper(), substitute_faculty.strip().upper()
 
         # Validate substitute availability
         if not _is_faculty_free(substitute, day, p_start, p_end, output_dir=_out):
@@ -502,7 +511,7 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
         if match.empty:
             match = fac_df[fac_df["name"].str.upper().str.contains(query, na=False)]
         if match.empty:
-            return f"No faculty found matching '{input_str}'."
+            return f"No faculty found matching '{faculty_id}'."
 
         row = match.iloc[0]
         fid        = str(row["faculty_id"]).strip()

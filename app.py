@@ -1180,7 +1180,7 @@ def _render_ai_agent():
                         "Agent unavailable — check GROQ_API_KEY and LangChain installation."
                     )
                 else:
-                    result = agent({"input": effective_instruction})
+                    result = agent({"input": instruction})
                     output = result.get("output", "")
                     reasoning = result.get("reasoning", [])
 
