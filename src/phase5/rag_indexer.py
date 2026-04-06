@@ -18,7 +18,7 @@ _RAG_ROOT = Path(__file__).resolve().parents[2]
 if str(_RAG_ROOT) not in sys.path:
     sys.path.insert(0, str(_RAG_ROOT))
 
-from config import SECTIONS, OUTPUT_DIR, get_sem_paths  # noqa: E402
+from config import DAYS, PERIODS, SECTIONS, OUTPUT_DIR, get_sem_paths  # noqa: E402
 
 MODEL_NAME = "all-MiniLM-L6-v2"
 CROSS_ENCODER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
@@ -80,6 +80,140 @@ def _period_columns(df) -> list[str]:
     return [f"P{i}" for i in range(1, 7) if f"P{i}" in df.columns]
 
 
+def _normalize_period(period: int | str) -> str:
+    text = str(period).strip()
+    return text if text.upper().startswith("P") else f"P{text}"
+
+
+def _is_empty_slot(value) -> bool:
+    token = str(value).strip()
+    return token in ("", "----", "nan", "None")
+
+
+def build_slot_roster_doc(day: str, period: int | str,
+                          faculty_grid: dict,
+                          all_faculty_ids: list[str]) -> dict:
+    period_key = _normalize_period(period)
+    busy = []
+    free = []
+    for fid in all_faculty_ids:
+        token = faculty_grid.get(fid, {}).get(day, {}).get(period_key, "")
+        if _is_empty_slot(token):
+            free.append(fid)
+        else:
+            busy.append(f"{fid}: teaching {token}")
+
+    text = (
+        f"Slot roster for {day} {period_key}. "
+        f"Busy ({len(busy)}): {', '.join(busy) if busy else 'none'}. "
+        f"Free ({len(free)}): {', '.join(free) if free else 'none'}."
+    )
+    metadata = {
+        "source_type": "slot_roster",
+        "day": day,
+        "period": period_key,
+    }
+    return {
+        "text": text,
+        "metadata": metadata,
+        "source": "slot_roster",
+        **metadata,
+    }
+
+
+def build_day_roster_doc(day: str,
+                         faculty_grid: dict,
+                         all_faculty_ids: list[str]) -> dict:
+    lines = [f"Day roster for {day}."]
+    for period in PERIODS:
+        period_key = _normalize_period(period)
+        busy = []
+        free = []
+        for fid in all_faculty_ids:
+            token = faculty_grid.get(fid, {}).get(day, {}).get(period_key, "")
+            if _is_empty_slot(token):
+                free.append(fid)
+            else:
+                busy.append(f"{fid}: teaching {token}")
+        lines.append(
+            f"{period_key} Busy ({len(busy)}): "
+            f"{', '.join(busy) if busy else 'none'}. "
+            f"Free ({len(free)}): {', '.join(free) if free else 'none'}."
+        )
+
+    metadata = {
+        "source_type": "day_roster",
+        "day": day,
+        "period": "all",
+    }
+    return {
+        "text": "\n".join(lines),
+        "metadata": metadata,
+        "source": "day_roster",
+        **metadata,
+    }
+
+
+def build_faculty_profile_doc(row) -> dict:
+    faculty_id = str(row.get("faculty_id", "")).strip()
+    name = str(row.get("name", "")).strip()
+    designation = str(row.get("designation", "")).strip()
+    pref_time = str(row.get("pref_time", "none")).strip()
+    pref_no_btb = str(row.get("pref_no_backtoback", "False")).strip()
+    pref_free_day = str(row.get("pref_no_teaching_day", "none")).strip()
+
+    text = (
+        f"Faculty {faculty_id} profile: "
+        f"Name: {name}. "
+        f"Designation: {designation}. "
+        f"Preference: {pref_time} timing, "
+        f"no-backtoback: {pref_no_btb}, "
+        f"free day preference: {pref_free_day}."
+    )
+    metadata = {
+        "source_type": "faculty_profile",
+        "faculty_id": faculty_id,
+    }
+    return {
+        "text": text,
+        "metadata": metadata,
+        "source": "faculty_profile",
+        "faculty": faculty_id,
+        **metadata,
+    }
+
+
+def build_room_roster_doc(day: str, period: int | str,
+                          room_grid: dict,
+                          all_rooms: list[str]) -> dict:
+    period_key = _normalize_period(period)
+    busy = []
+    free = []
+    for room in all_rooms:
+        token = room_grid.get(room, {}).get(day, {}).get(period_key, "")
+        if _is_empty_slot(token):
+            free.append(room)
+        else:
+            busy.append(f"{room}: {token}")
+
+    text = (
+        f"Room roster for {day} {period_key}. "
+        f"Busy ({len(busy)}): {', '.join(busy) if busy else 'none'}. "
+        f"Free ({len(free)}): {', '.join(free) if free else 'none'}."
+    )
+    metadata = {
+        "source_type": "room_roster",
+        "day": day,
+        "period": period_key,
+    }
+    return {
+        "text": text,
+        "metadata": metadata,
+        "source": "room_roster",
+        **metadata,
+    }
+
+
 # ── Metadata filter helpers ───────────────────────────────────────────────────
 
 def _extract_filters(query: str) -> dict:
@@ -89,7 +223,8 @@ def _extract_filters(query: str) -> dict:
     Returns a dict with zero or more of the following keys:
       - "section"     : str, e.g. "A"
       - "day"         : str, e.g. "Monday"
-      - "faculty"     : str, e.g. "F03"
+      - "period"      : str, e.g. "P1"
+      - "faculty"     : str or list[str], e.g. "F03" or ["F01", "F02"]
       - "source_type" : str, one of "section", "faculty", "room"
 
     Only keys whose values are positively detected are included.
@@ -114,11 +249,21 @@ def _extract_filters(query: str) -> dict:
     # ── Faculty filter ────────────────────────────────────────────────────────
     fac_match = re.search(r"\bF(\d{2})\b", q)
     if fac_match:
-        filters["faculty"] = f"F{fac_match.group(1)}"
+        faculty_ids = [
+            f"F{match}"
+            for match in re.findall(r"\bF(\d{2})\b", q, re.IGNORECASE)
+        ]
+        faculty_ids = list(dict.fromkeys(faculty_ids))
+        filters["faculty"] = faculty_ids[0] if len(faculty_ids) == 1 else faculty_ids
+
+    # ── Period filter ─────────────────────────────────────────────────────────
+    period_match = re.search(r"\bP([1-6])\b", q, re.IGNORECASE)
+    if period_match:
+        filters["period"] = f"P{period_match.group(1)}"
 
     # ── Source-type filter ────────────────────────────────────────────────────
     # Check most-specific first; "faculty" beats "section" if both appear.
-    if "room" in ql or "classroom" in ql:
+    if "room" in ql or "classroom" in ql or "lab" in ql:
         filters["source_type"] = "room"
     elif "faculty" in ql:
         filters["source_type"] = "faculty"
@@ -139,9 +284,11 @@ def _apply_filters(docs: list[dict], filters: dict) -> list[int]:
                   EXCEPTION: day="all" (full-week summary docs) always pass
                   the day filter so they are always included in section/faculty
                   filtered searches.
-    faculty     : doc["faculty"] == filters["faculty"]
-    source_type : filters["source_type"] string is contained in doc["source"]
-                  (e.g. "section" ⊆ "section_A_timetable.csv")
+    period      : doc["period"]  == filters["period"]
+    faculty     : doc["faculty"] equals filters["faculty"], or is contained in
+                  the filter list when multiple faculty IDs are requested.
+    source_type : doc["source_type"] exact-match when present, else fallback to
+                  substring match against doc["source"] for legacy docs.
 
     If `filters` is empty, all indices are returned.
     """
@@ -163,12 +310,25 @@ def _apply_filters(docs: list[dict], filters: dict) -> list[int]:
                 match = False
 
         if match and "faculty" in filters:
-            if doc.get("faculty") != filters["faculty"]:
+            target_faculty = filters["faculty"]
+            doc_faculty = doc.get("faculty") or doc.get("faculty_id")
+            if isinstance(target_faculty, list):
+                if doc_faculty not in target_faculty:
+                    match = False
+            elif doc_faculty != target_faculty:
+                match = False
+
+        if match and "period" in filters:
+            if doc.get("period") != filters["period"]:
                 match = False
 
         if match and "source_type" in filters:
+            doc_source_type = doc.get("source_type")
             src = doc.get("source", "")
-            if filters["source_type"] not in src:
+            if doc_source_type:
+                if doc_source_type != filters["source_type"]:
+                    match = False
+            elif filters["source_type"] not in src:
                 match = False
 
         if match:
@@ -334,6 +494,9 @@ def build_index(sem_id: str = None):
         })
 
     # ── Faculty timetable files ───────────────────────────────────────────────
+    faculty_grid: dict[str, dict[str, dict[str, str]]] = {}
+    discovered_faculty_ids: list[str] = []
+
     for csv_path in faculty_files:
         try:
             df = pd.read_csv(csv_path)
@@ -341,15 +504,19 @@ def build_index(sem_id: str = None):
             continue
 
         faculty_id = csv_path.stem.removeprefix("faculty_").removesuffix("_timetable")
+        discovered_faculty_ids.append(faculty_id)
+        faculty_grid[faculty_id] = {}
         period_cols = _period_columns(df)
 
         # ── Per-slot and per-day docs ──────────────────────────────────────────
         for _, row in df.iterrows():
             day = str(row["Day"]).strip()
+            faculty_grid[faculty_id][day] = {}
             occupied = []
             for period in period_cols:
                 cell = str(row.get(period, "----")).strip()
-                if cell in ("", "----", "nan"):
+                faculty_grid[faculty_id][day][period] = cell
+                if _is_empty_slot(cell):
                     continue
                 occupied.append((period, cell))
                 docs.append({
@@ -358,6 +525,7 @@ def build_index(sem_id: str = None):
                     "day": day,
                     "period": period,
                     "source": csv_path.name,
+                    "source_type": "faculty_slot",
                 })
 
             docs.append({
@@ -368,6 +536,7 @@ def build_index(sem_id: str = None):
                 "faculty": faculty_id,
                 "day": day,
                 "source": csv_path.name,
+                "source_type": "faculty_day",
             })
 
         # ── Full-week summary doc (one per faculty) ────────────────────────────
@@ -390,8 +559,37 @@ def build_index(sem_id: str = None):
             "faculty": faculty_id,
             "day":     "all",
             "period":  "all",
-            "source":  "faculty_full_week",
+            "source":  "faculty_week_summary",
+            "source_type": "faculty_week_summary",
         })
+
+    faculty_csv = data_dir / "faculty.csv"
+    faculty_df = None
+    all_faculty_ids = sorted(set(discovered_faculty_ids))
+    if faculty_csv.exists():
+        try:
+            faculty_df = pd.read_csv(faculty_csv)
+            if all_faculty_ids:
+                ordered_ids = [
+                    str(fid).strip()
+                    for fid in faculty_df["faculty_id"].tolist()
+                    if str(fid).strip() in faculty_grid
+                ]
+                extras = sorted(set(all_faculty_ids) - set(ordered_ids))
+                all_faculty_ids = ordered_ids + extras
+        except Exception:
+            faculty_df = None
+
+    if faculty_df is not None:
+        for _, row in faculty_df.iterrows():
+            docs.append(build_faculty_profile_doc(row))
+
+    for day_name in DAYS:
+        docs.append(build_day_roster_doc(day_name, faculty_grid, all_faculty_ids))
+        for period in PERIODS:
+            docs.append(
+                build_slot_roster_doc(day_name, period, faculty_grid, all_faculty_ids)
+            )
 
     # ── Per-slot cross-section summary documents ─────────────────────────────
     # One doc per (day, period) listing ALL faculty+sections teaching that slot.
@@ -431,24 +629,80 @@ def build_index(sem_id: str = None):
                     "period":  col,
                     "source":  "slot_summary",
                     "section": "all",
+                    "source_type": "slot_summary",
                 })
 
     slot_summary_count = sum(1 for d in docs if d.get("source") == "slot_summary")
     print(f"  Slot-summary docs: {slot_summary_count} (one per day×period)")
+    slot_roster_count = sum(1 for d in docs if d.get("source_type") == "slot_roster")
+    day_roster_count = sum(1 for d in docs if d.get("source_type") == "day_roster")
+    faculty_profile_count = sum(1 for d in docs if d.get("source_type") == "faculty_profile")
+    print(f"  Slot-roster docs: {slot_roster_count}")
+    print(f"  Day-roster docs : {day_roster_count}")
+    print(f"  Faculty profiles: {faculty_profile_count}")
 
     # ── Room assignment CSV ───────────────────────────────────────────────────
     room_csv = output_dir / "room_assignment.csv"
     if room_csv.exists():
         try:
             rdf = pd.read_csv(room_csv)
+            rooms_df = None
+            all_rooms = []
+            room_grid = {}
+            rooms_path = data_dir / "rooms.csv"
+            if rooms_path.exists():
+                try:
+                    rooms_df = pd.read_csv(rooms_path)
+                    all_rooms = [
+                        str(room).strip()
+                        for room in rooms_df["room_name"].tolist()
+                        if str(room).strip() and str(room).strip() != "nan"
+                    ]
+                    all_rooms = list(dict.fromkeys(all_rooms))
+                    room_grid = {
+                        room: {
+                            day_name: {f"P{period}": "" for period in PERIODS}
+                            for day_name in DAYS
+                        }
+                        for room in all_rooms
+                    }
+                    for _, row in rdf.iterrows():
+                        day_name = str(row.get("Day", "")).strip()
+                        period_key = _normalize_period(str(row.get("Period", "")).strip())
+                        room_name = str(row.get("Room", "")).strip()
+                        if (
+                            room_name in ("", "nan", "ROOM_UNASSIGNED")
+                            or room_name not in room_grid
+                            or day_name not in room_grid[room_name]
+                            or period_key not in room_grid[room_name][day_name]
+                        ):
+                            continue
+
+                        section = str(row.get("Section", "")).strip()
+                        course = str(row.get("Course", "")).strip()
+                        token_parts = [part for part in [course, f"Section {section}" if section else ""] if part]
+                        token = " ".join(token_parts) if token_parts else "occupied"
+                        current = room_grid[room_name][day_name][period_key]
+                        room_grid[room_name][day_name][period_key] = (
+                            f"{current}; {token}" if current and token not in current else token
+                        )
+                except Exception:
+                    rooms_df = None
+                    room_grid = {}
+
+            if room_grid:
+                for day_name in DAYS:
+                    for period in PERIODS:
+                        docs.append(build_room_roster_doc(day_name, period, room_grid, all_rooms))
+
             for (day, period), grp in rdf.groupby(["Day", "Period"]):
                 occupied = grp[grp["Room"] != "ROOM_UNASSIGNED"]
                 free_names = set()
                 try:
-                    rooms_df = pd.read_csv(data_dir / "rooms.csv")
+                    room_source_df = rooms_df if rooms_df is not None else pd.read_csv(data_dir / "rooms.csv")
                     all_cr = set(
-                        rooms_df[
-                            rooms_df["room_type"].str.upper().isin(
+                        room_source_df[
+                            room_source_df["room_type"].str.upper().isin(
                                 ["CLASSROOM", "LECTURE_HALL"]
                             )
                         ]["room_name"].tolist()
@@ -476,9 +730,13 @@ def build_index(sem_id: str = None):
                     "day":    day,
                     "period": period,
                     "source": "room_assignment.csv",
+                    "source_type": "room_availability",
                 })
         except Exception as exc:
             print(f"Warning: could not index room_assignment.csv: {exc}")
+
+    room_roster_count = sum(1 for d in docs if d.get("source_type") == "room_roster")
+    print(f"  Room-roster docs: {room_roster_count}")
 
     if not docs:
         print(f"No timetable CSVs found in {output_dir}. Run run_all.py --sem {label} first.")
@@ -582,7 +840,9 @@ def _is_full_schedule_query(query: str) -> bool:
     ])
 
 
-def retrieve(query: str, k: int = 5, sem_id: str = None, use_rerank: bool = True) -> list:
+def retrieve(query: str, k: int = 5, sem_id: str = None,
+             use_rerank: bool = True,
+             metadata_filter: dict | None = None) -> list:
     """
     Retrieve top-k relevant timetable records for a query string.
 
@@ -608,6 +868,9 @@ def retrieve(query: str, k: int = 5, sem_id: str = None, use_rerank: bool = True
     use_rerank : bool
         If True (default) — fetch k*3 candidates and rerank with cross-encoder.
         If False — fetch exactly k candidates from FAISS (legacy behaviour).
+    metadata_filter : dict or None
+        Explicit metadata constraints supplied by the caller. Values here
+        override heuristic query-extracted filters.
     """
     try:
         from sentence_transformers import SentenceTransformer
@@ -636,6 +899,9 @@ def retrieve(query: str, k: int = 5, sem_id: str = None, use_rerank: bool = True
 
     # ── Step 1: extract metadata filters ─────────────────────────────────────
     filters = _extract_filters(query)
+    if metadata_filter:
+        filters.update(metadata_filter)
+    retrieve_all_matching = bool(metadata_filter and metadata_filter.get("source_type"))
 
     # ── Step 2: find matching doc indices ─────────────────────────────────────
     if filters:
@@ -645,6 +911,15 @@ def retrieve(query: str, k: int = 5, sem_id: str = None, use_rerank: bool = True
 
     # ── Step 3: search strategy ───────────────────────────────────────────────
     candidates = []
+
+    if retrieve_all_matching:
+        if not candidate_indices:
+            return []
+        for i in candidate_indices:
+            result = {ke: v for ke, v in docs[i].items() if ke != "embedding"}
+            result["distance"] = 0.0
+            candidates.append(result)
+        return candidates
 
     # Full-schedule shortcut: if a faculty filter is active and the query needs
     # a complete weekly view, bypass vector search and return ALL matching docs.

@@ -89,6 +89,8 @@ def _init_state():
         st.session_state._agent_last_fac = None
     if "_agent_last_day" not in st.session_state:
         st.session_state._agent_last_day = None
+    if "show_debug" not in st.session_state:
+        st.session_state.show_debug = False
 
     # Orphan temp-folder cleanup (older than 24 h)
     for _sem in list_available_semesters():
@@ -492,6 +494,15 @@ def _render_sidebar():
             st.markdown(f"{dot} **{label}**" + (f"  ({failed} failed)" if failed else ""))
         except Exception:
             st.markdown("⚪ Health check error")
+
+        st.divider()
+
+        # ── Debug toggle ──────────────────────────────────────────────────────
+        st.session_state.show_debug = st.toggle(
+            "Show debug info",
+            value=st.session_state.show_debug,
+            help="When ON, shows the full system prompt and RAG context sent to the LLM.",
+        )
 
         st.divider()
 
@@ -1094,11 +1105,12 @@ def _render_ai_assistant():
 
     # ── Suggestion chips ──────────────────────────────────────────────────────
     suggestions = [
-        "What is Section A's timetable?",
-        "Who teaches on Wednesday P3?",
-        "Which faculty are free on Monday P1?",
-        "Find a substitute for F01 on Tuesday",
-        "Compare workload of F01 and F02",
+        "What does Section A have on Monday?",
+        "When does F03 teach CNS?",
+        "Which faculty are free on Wednesday P3?",
+        "Which rooms are free on Monday P5?",
+        "What is the name of F01?",
+        "Who has the highest workload this week?",
     ]
     st.markdown("**Quick queries:**")
     chip_cols = st.columns(len(suggestions))
@@ -1123,16 +1135,16 @@ def _render_ai_assistant():
             with st.chat_message("assistant"):
                 with st.spinner("Thinking…"):
                     try:
-                        from src.phase5.ai_explainer import explain_with_rag, _is_multihop, _decompose_query
+                        from src.phase5.ai_explainer import (
+                            explain_with_rag, _is_multihop, _decompose_query,
+                            setup_context,
+                        )
                         history_for_llm = [
                             (u, a)
                             for u, a in st.session_state.chat_history[:i]
                             if a is not None
                         ][-4:]
 
-                        # Bug #5 fix: skip faculty filter for substitute queries
-                        # (handled inside retrieve via _extract_filters — we pass
-                        # a prefixed query so the filter is not applied)
                         query = user_msg
                         if _is_substitute_query(query):
                             query = f"[SUBSTITUTE_INTENT] {query}"
@@ -1147,28 +1159,68 @@ def _render_ai_assistant():
                             except Exception:
                                 raw_debug["sub_queries"] = []
 
-                        # retrieve to get debug info
+                        # Retrieve docs separately for the legacy debug panel
                         try:
                             from src.phase5.rag_indexer import retrieve
-                            docs = retrieve(user_msg, k=5, sem_id=sem_id)
-                            raw_debug["docs_retrieved"] = len(docs)
-                            raw_debug["reranked"] = any("ce_score" in d for d in docs)
+                            docs_preview = retrieve(user_msg, k=5, sem_id=sem_id)
+                            raw_debug["docs_retrieved"] = len(docs_preview)
+                            raw_debug["reranked"] = any("ce_score" in d for d in docs_preview)
                             raw_debug["top_snippets"] = [
-                                d.get("text", "")[:80] for d in docs[:3]
+                                d.get("text", "")[:80] for d in docs_preview[:3]
                             ]
                         except Exception:
+                            docs_preview = []
                             raw_debug["docs_retrieved"] = 0
                             raw_debug["reranked"] = False
                             raw_debug["top_snippets"] = []
 
-                        response = explain_with_rag(
+                        # explain_with_rag now returns (answer, retrieved_docs)
+                        response, retrieved_docs = explain_with_rag(
                             user_msg,
                             history=history_for_llm,
                             sem_id=sem_id,
                         )
                         st.session_state.chat_history[i] = (user_msg, response)
                         st.session_state._rag_debug = raw_debug
+                        # Store retrieved docs for expander rendering below
+                        raw_debug["retrieved_docs"] = retrieved_docs
+
+                        # ── Get system prompt for debug expander ──────────────
+                        try:
+                            ctx = setup_context(sem_id=sem_id)
+                            raw_debug["system_prompt"] = ctx.get("system_prompt", "")
+                        except Exception:
+                            raw_debug["system_prompt"] = ""
+
                         st.write(response)
+
+                        # ── RAG context expander (always shown) ───────────────
+                        with st.expander("🔍 RAG context sent with this prompt"):
+                            if retrieved_docs:
+                                for idx, doc in enumerate(retrieved_docs):
+                                    st.markdown(
+                                        f"**Doc {idx+1}** — "
+                                        f"`{doc['source_type']}` | "
+                                        f"score: `{doc['score']:.3f}`"
+                                    )
+                                    st.caption(doc["text"])
+                                    if doc.get("metadata"):
+                                        st.json(doc["metadata"], expanded=False)
+                                    st.divider()
+                            else:
+                                st.info(
+                                    "No RAG context — answered from direct CSV lookup "
+                                    "or LLM knowledge."
+                                )
+
+                        # ── System prompt expander (debug mode only) ──────────
+                        if st.session_state.get("show_debug"):
+                            with st.expander("📋 Full system prompt sent to LLM"):
+                                sp = raw_debug.get("system_prompt", "")
+                                if sp:
+                                    st.code(sp, language="text")
+                                else:
+                                    st.info("System prompt not available.")
 
                     except Exception as e:
                         err = f"⚠️ AI assistant error: {e}"
@@ -1178,9 +1230,9 @@ def _render_ai_assistant():
             st.rerun()
             break
 
-    # ── Retrieval debug panel ─────────────────────────────────────────────────
-    if st.session_state._rag_debug:
-        with st.expander("🔍 Retrieval details", expanded=False):
+    # ── Retrieval debug panel (only in debug mode) ────────────────────────────
+    if st.session_state._rag_debug and st.session_state.get("show_debug"):
+        with st.expander("🔍 Retrieval details (last query)", expanded=False):
             dbg = st.session_state._rag_debug
             is_multi = dbg.get("multihop", False)
             st.markdown(f"**Decomposed:** {'Yes' if is_multi else 'No'}")
@@ -1326,6 +1378,47 @@ def _render_ai_agent():
                         with st.expander("🔧 Reasoning chain"):
                             for step in reasoning:
                                 st.caption(f"• {step}")
+
+                    # ── RAG context expander (tools that used RAG) ──────────
+                    # Capture any RAG docs the agent's tools pulled during this run
+                    try:
+                        from src.phase5.rag_indexer import retrieve as _retrieve
+                        from src.phase5.ai_explainer import _normalize_doc
+                        _agent_rag_docs = _retrieve(instruction, k=5, sem_id=sem_id)
+                        _agent_norm_docs = [_normalize_doc(d) for d in _agent_rag_docs]
+                    except Exception:
+                        _agent_norm_docs = []
+
+                    with st.expander("🔍 RAG context available for this query"):
+                        if _agent_norm_docs:
+                            for idx, doc in enumerate(_agent_norm_docs):
+                                st.markdown(
+                                    f"**Doc {idx+1}** — "
+                                    f"`{doc['source_type']}` | "
+                                    f"score: `{doc['score']:.3f}`"
+                                )
+                                st.caption(doc["text"])
+                                if doc.get("metadata"):
+                                    st.json(doc["metadata"], expanded=False)
+                                st.divider()
+                        else:
+                            st.info(
+                                "No RAG context — agent used direct tool calls "
+                                "(CSV lookup) rather than a RAG retriever."
+                            )
+
+                    # ── System prompt expander (debug mode only) ───────────
+                    if st.session_state.get("show_debug"):
+                        try:
+                            from src.phase5.agent import _get_agent_system_prompt
+                            _agent_sp = _get_agent_system_prompt(sem_id=sem_id)
+                        except Exception:
+                            _agent_sp = ""
+                        with st.expander("📋 Full system prompt sent to Agent LLM"):
+                            if _agent_sp:
+                                st.code(_agent_sp, language="text")
+                            else:
+                                st.info("System prompt not available.")
 
                     # ── Confirm button if agent is proposing a commit ──────────
                     from src.phase5.sync_manager import get_active_preview as _gap

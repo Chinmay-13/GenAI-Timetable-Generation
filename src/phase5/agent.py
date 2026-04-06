@@ -150,6 +150,13 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
     """
     _out = Path(agent_output_dir) if agent_output_dir else None
 
+    # Semester-aware data directory (faculty.csv, rooms.csv, etc.)
+    if sem_id is not None:
+        from config import get_sem_paths as _gsp_inner
+        _dat = _gsp_inner(sem_id).data_dir
+    else:
+        _dat = _AGENT_ROOT / "data"
+
     def _rop(filename: str) -> Path:
         """Resolve an output file path, honouring the active semester dir."""
         if _out is not None:
@@ -323,7 +330,7 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
             limit = int(input_str.strip()) if input_str.strip() else 10
         except ValueError:
             limit = 10
-        ops = list_operations(limit)
+        ops = list_operations(limit, sem_id=sem_id)
         if not ops:
             return "No agent operations logged yet."
         lines = []
@@ -348,7 +355,7 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
         op_id = input_str.strip()
         if not op_id:
             return "Error: provide an operation_id."
-        return rollback_operation(op_id)
+        return rollback_operation(op_id, sem_id=sem_id)
 
     @tool
     def generate_session_summary(input_str: str) -> str:
@@ -359,7 +366,7 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
         """
         from datetime import datetime as _dt
         label = input_str.strip() or "Agent Session"
-        ops = list_operations(50)
+        ops = list_operations(50, sem_id=sem_id)
         if not ops:
             return "No operations to summarise."
 
@@ -382,7 +389,9 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
             ]
 
         summary_text = "\n".join(lines)
-        ops_dir = _AGENT_ROOT / "outputs" / "agent_ops"
+        # Bug 4 fix: use per-semester agent_ops dir
+        from src.phase5.agent_ops import _ops_dir as _get_ops_dir
+        ops_dir = _get_ops_dir(sem_id)
         ops_dir.mkdir(parents=True, exist_ok=True)
         out_path = ops_dir / f"summary_{_dt.now().strftime('%Y%m%dT%H%M%S')}.txt"
         out_path.write_text(summary_text, encoding="utf-8")
@@ -505,14 +514,10 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
         occupied = set(slot_rows["Room"].tolist())
         occupied.discard("ROOM_UNASSIGNED")
 
-        # All classrooms from rooms.csv
-        rooms_path = _AGENT_ROOT / "data" / "rooms.csv"
-        if not rooms_path.exists():
-            rooms_path = resolve_output_path("..") / "data" / "rooms.csv"
+        # All classrooms from rooms.csv — Bug 3 fix: use per-semester data dir
+        rooms_csv_path = _dat / "rooms.csv"
         try:
-            rooms_df = _pd.read_csv(
-                Path(__file__).resolve().parents[2] / "data" / "rooms.csv"
-            )
+            rooms_df = _pd.read_csv(rooms_csv_path)
         except Exception as exc:
             return f"Error reading rooms.csv: {exc}"
 
@@ -550,12 +555,13 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
         """
         query = faculty_id.strip().upper()
         import pandas as _pd
-        from config import DATA_DIR as _DATA_DIR, MAX_HOURS as _MAX_HOURS
-        from config import resolve_output_path as _rop
+        # Bug 1 fix: use closure _rop (semester-aware) and _dat — do NOT
+        # shadow-import resolve_output_path as _rop here.
+        from config import MAX_HOURS as _MAX_HOURS
 
-        # Resolve faculty_id from id or partial name
+        # Resolve faculty_id from id or partial name — use sem-aware data dir
         try:
-            fac_df = _pd.read_csv(Path(__file__).resolve().parents[2] / "data" / "faculty.csv")
+            fac_df = _pd.read_csv(_dat / "faculty.csv")
         except Exception as exc:
             return f"Cannot load faculty.csv: {exc}"
 
@@ -571,6 +577,7 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
         designation = str(row["designation"]).strip()
         max_h      = _MAX_HOURS.get(designation, 16)
 
+        # Use closure _rop — resolves to active semester output dir
         fac_path = _rop(f"faculty_{fid}_timetable.csv")
         if not fac_path.exists():
             return f"Timetable not found for {fid}. Run run_all.py first."
@@ -625,9 +632,9 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
         col = f"P{period_int}"
 
         import pandas as _pd
-        fac_path = Path(__file__).resolve().parents[2] / "data" / "faculty.csv"
+        # Bug 2 fix: use per-semester data dir via closure _dat
         try:
-            fac_df = _pd.read_csv(fac_path)
+            fac_df = _pd.read_csv(_dat / "faculty.csv")
         except Exception as exc:
             return f"Cannot load faculty.csv: {exc}"
 
@@ -911,54 +918,67 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
 
         try:
             from src.phase5.substitute import (
-                find_substitute as _find_sub,
-                _rank_candidates, _collect_absent_slots,
+                _rank_candidates, _collect_absent_slots, _sections_for_faculty,
                 get_faculty_day_row, faculty_lookup, normalize_day,
                 get_lab_block_periods, parse_timetable_cell,
             )
         except ImportError as exc:
             return f"Cannot import substitute module: {exc}"
 
+        # Resolve semester-specific dirs from the closure sem_id
+        from config import get_sem_paths as _gsp
+        if sem_id:
+            _sp    = _gsp(sem_id)
+            _out_d = _sp.output_dir
+            _dat_d = _sp.data_dir
+        else:
+            _out_d = _dat_d = None
+
         try:
-            day = normalize_day(day_raw)
-            lookup = faculty_lookup()
+            day_norm = normalize_day(day_raw)
+            lookup   = faculty_lookup(_dat_d)
             fid_upper = fid.strip().upper()
             if fid_upper not in lookup:
                 return f"Unknown faculty_id: {fid_upper}"
 
-            absent_info = lookup[fid_upper]
-            absent_designation = absent_info["designation"]
+            absent_info     = lookup[fid_upper]
+            absent_sections = _sections_for_faculty(fid_upper, _dat_d)
 
             # Get the slot info for the requested period
-            day_row = get_faculty_day_row(fid_upper, day)
-            cell = str(day_row.get(period_col, "----")).strip()
+            day_row = get_faculty_day_row(fid_upper, day_norm, _out_d)
+            cell    = str(day_row.get(period_col, "----")).strip()
             if cell in ("----", "", "nan"):
                 return (
-                    f"{fid_upper} has no class on {day} {period_col}. "
+                    f"{fid_upper} has no class on {day_norm} {period_col}. "
                     "Nothing to simulate."
                 )
 
             slot_info = parse_timetable_cell(cell)
             if slot_info is None:
-                return f"Could not parse slot '{cell}' for {fid_upper} on {day} {period_col}."
+                return f"Could not parse slot '{cell}' for {fid_upper} on {day_norm} {period_col}."
 
             # Expand to lab block if needed
-            block = get_lab_block_periods(period_col)
-            ranked = _rank_candidates(
+            block  = get_lab_block_periods(period_col)
+            print(f"[DEBUG] simulate_substitute: calling _rank_candidates for "
+                  f"{fid_upper} {day_norm} {period_col} | sem_id={sem_id!r}")
+            ranked, at_cap = _rank_candidates(
                 absent_faculty_id=fid_upper,
-                absent_designation=absent_designation,
-                day=day,
+                day=day_norm,
                 period=period_col,
                 slot_info=slot_info,
+                absent_sections=absent_sections,
+                out_dir=_out_d,
+                data_dir=_dat_d,
             )
+            print(f"[DEBUG] simulate_substitute: {len(ranked)} candidates returned")
 
             if len(block) > 1:
                 # Lab block: filter to candidates free for all periods
                 filtered = []
                 for cand in ranked:
                     all_free = all(
-                        str(get_faculty_day_row(cand["faculty_id"], day).get(bp, "----")).strip()
-                        in ("----", "", "nan")
+                        str(get_faculty_day_row(cand["faculty_id"], day_norm, _out_d)
+                            .get(bp, "----")).strip() in ("----", "", "nan")
                         for bp in block
                     )
                     if all_free:
@@ -969,13 +989,13 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
             if not top3:
                 return (
                     f"No substitute candidates found for {fid_upper} on "
-                    f"{day} {period_col} ({slot_info['course']}).\n"
+                    f"{day_norm} {period_col} ({slot_info['course']}).\n"
                     "All faculty are either busy or at load cap."
                 )
 
             lines = [
                 f"[SIMULATION] Top substitute candidates for {absent_info['name']} "
-                f"({fid_upper}) on {day} {period_col} — {slot_info['course']}",
+                f"({fid_upper}) on {day_norm} {period_col} — {slot_info['course']}",
                 "",
             ]
             for i, c in enumerate(top3, 1):
@@ -991,15 +1011,14 @@ def _make_tools(agent_output_dir=None, sem_id: str = None):
                 lines.append("")
 
             lines.append(
-                "⚠ This is a SIMULATION only — no changes have been made.\n"
-                "  To apply, use: commit_substitute("
-                f"{slot_info.get('section','?')},{day},{period_int},{period_int},"
-                f"{fid_upper},<chosen_id>,<reason>)"
+                "\u26a0 This is a SIMULATION only \u2014 no changes have been made.\n"
+                "  Proceed with commit_substitute using the top candidate."
             )
             return "\n".join(lines)
 
         except Exception as exc:
-            return f"Simulation error: {exc}"
+            import traceback
+            return f"Simulation error: {exc}\n{traceback.format_exc()}"
 
     return [
         get_section_timetable,

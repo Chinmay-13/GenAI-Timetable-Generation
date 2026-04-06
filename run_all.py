@@ -12,8 +12,8 @@ Phases:
 
 Usage
 -----
-  python run_all.py                   # legacy — reads from data/  writes to outputs/
-  python run_all.py --sem cse_sem3    # semester-aware
+  python run_all.py                   # auto-run ALL semesters found in data/
+  python run_all.py --sem cse_sem3    # run a single semester
   python run_all.py --sem cse_sem5
 """
 
@@ -228,7 +228,7 @@ def run_all(sem_id: str = None) -> bool:
         return False
 
 
-# ── CLI entry point ───────────────────────────────────────────────────────────
+# ── CLI entry point ────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import argparse
@@ -238,8 +238,8 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  python run_all.py                  # legacy (data/ → outputs/)\n"
-            "  python run_all.py --sem cse_sem3   # semester-aware\n"
+            "  python run_all.py                  # auto-run all semesters in data/\n"
+            "  python run_all.py --sem cse_sem3   # single semester\n"
             "  python run_all.py --sem cse_sem5\n"
         ),
     )
@@ -248,9 +248,49 @@ if __name__ == "__main__":
         type=str,
         default=None,
         metavar="SEM_ID",
-        help="Semester slug to run pipeline for (e.g. cse_sem3, cse_sem5). "
-             "Omit for legacy mode.",
+        help="Semester slug to run (e.g. cse_sem3). "
+             "Omit to auto-run ALL semesters found under data/.",
     )
     args = parser.parse_args()
-    success = run_all(sem_id=args.sem)
-    sys.exit(0 if success else 1)
+
+    if args.sem is not None:
+        # Single semester requested explicitly
+        sems = [args.sem]
+    else:
+        # Auto-discover all subdirs under data/ that look like semester dirs
+        data_root = _PROJECT_ROOT / "data"
+        sems = sorted(
+            d.name for d in data_root.iterdir()
+            if d.is_dir() and (d / "courses.csv").exists()
+        )
+        if not sems:
+            print(
+                f"{_RED}No semester directories found under {data_root}.{_RESET}\n"
+                "Each semester needs at least a courses.csv inside data/<sem_id>/\n"
+                "Run with --sem <sem_id> explicitly if your layout differs."
+            )
+            sys.exit(1)
+        print(
+            f"{_BOLD}No --sem given. Auto-discovered {len(sems)} semester(s): "
+            f"{', '.join(sems)}{_RESET}"
+        )
+
+    results: dict[str, bool] = {}
+    for sem_id in sems:
+        results[sem_id] = run_all(sem_id=sem_id)
+
+    # ── Combined summary when running multiple semesters ───────────────────
+    if len(sems) > 1:
+        print(f"\n{_BOLD}{_CYAN}{'=' * 55}{_RESET}")
+        print(f"{_BOLD}{_CYAN}  COMBINED RESULTS{_RESET}")
+        print(f"{_BOLD}{_CYAN}{'=' * 55}{_RESET}")
+        all_ok = True
+        for sem_id, ok in results.items():
+            marker = f"{_GREEN}✓{_RESET}" if ok else f"{_RED}✗{_RESET}"
+            print(f"  {marker}  {sem_id}")
+            if not ok:
+                all_ok = False
+        print()
+        sys.exit(0 if all_ok else 1)
+    else:
+        sys.exit(0 if results[sems[0]] else 1)

@@ -12,7 +12,9 @@ RAG Improvement #2: query decomposition for multi-hop questions.
 from pathlib import Path
 import sys
 import json
+import logging
 import re
+import time
 import warnings
 from typing import Dict, List, Optional, Tuple
 
@@ -29,7 +31,45 @@ from config import resolve_output_path, SECTIONS
 from src.phase5.prompt_builder import build_system_prompt
 from src.phase5.llm_wrapper import get_llm, safe_llm_call
 
+LOGGER = logging.getLogger(__name__)
 _CONTEXT_CACHE: dict = {}   # keyed by sem_id ("legacy" when sem_id is None)
+
+SYSTEM_PROMPT = """You are a timetable query assistant for a CSE department.
+Answer ONLY using the context provided. Never infer, guess, or fill gaps.
+
+RULES (non-negotiable):
+1. Max 4 sentences. Never repeat a fact already stated.
+2. If context is incomplete, say: "The retrieved data is incomplete for this query."
+   Do NOT guess the missing values.
+3. For list queries (e.g. "who is free"), output a bullet list, nothing else.
+4. For comparisons, use this format:
+     - F01: X periods (Mon, Wed, Fri)
+     - F02: Y periods (Tue, Thu)
+     - Conclusion: [one sentence]
+5. Never start a sentence with "However," or "To compare" or "We can see that".
+6. For superlative queries (highest, lowest, most, least), first list all values briefly, then end with:
+     "Highest: [name]" or "Lowest: [name]" on its own line.
+
+Context:
+{context}
+"""
+RAG_STOP_SEQUENCES = [
+    "However,",
+    "To compare",
+    "We can see that",
+    "Unfortunately",
+]
+_QUERY_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"]
+_QUERY_PERIOD_PATTERN = re.compile(r"\bp([1-6])\b", re.IGNORECASE)
+_FACULTY_ID_PATTERN = re.compile(r"\bF\d{2}\b", re.IGNORECASE)
+_SUBSTITUTE_KEYWORDS = {
+    "substitute", "replacement", "replace", "cover", "covering", "absent", "who can",
+}
+_FREE_LINE_PATTERN = re.compile(r"Free \(\d+\):\s*(.+?)\.$")
+_DAY_LINE_PATTERN = re.compile(
+    r"^\s*(Monday|Tuesday|Wednesday|Thursday|Friday):\s*(.*)$",
+    re.IGNORECASE,
+)
 
 
 def _read_text(path: Path) -> str:
@@ -150,6 +190,64 @@ def _history_block(history: Optional[List[Tuple[str, str]]]) -> str:
         lines.append(f"User: {user_text}")
         lines.append(f"AI: {ai_text}")
     return "\n".join(lines)
+
+
+def _extract_query_day(query: str) -> Optional[str]:
+    q = query.lower()
+    for day in _QUERY_DAYS:
+        if day in q:
+            return day.title()
+    return None
+
+
+def _extract_query_faculty_id(query: str) -> Optional[str]:
+    match = _FACULTY_ID_PATTERN.search(query)
+    return match.group(0).upper() if match else None
+
+
+def detect_query_intent(query: str) -> dict:
+    q = query.lower()
+    faculty_id = _extract_query_faculty_id(query)
+    day = _extract_query_day(query)
+
+    explicit_substitute = any(
+        keyword in q for keyword in {"substitute", "replacement", "replace", "absent"}
+    )
+    cover_style_substitute = (
+        any(keyword in q for keyword in {"cover", "covering", "who can"})
+        and any(trigger in q for trigger in {"absent", "instead", "replacement", "substitute", "for f"})
+    )
+
+    if explicit_substitute or cover_style_substitute:
+        return {
+            "route": "substitute_finder",
+            "faculty_id": faculty_id,
+            "day": day,
+        }
+
+    if faculty_id and ("name of" in q or "designation of" in q or "who is" in q):
+        return {"source_type": "faculty_profile"}
+
+    has_day = any(day in q for day in _QUERY_DAYS)
+    has_period = bool(_QUERY_PERIOD_PATTERN.search(q))
+
+    if (
+        ("room" in q or "classroom" in q or "lab" in q)
+        and ("free" in q or "available" in q or "empty" in q)
+        and has_day
+    ):
+        return {"source_type": "room_roster"}
+
+    if "highest" in q or "most" in q or "lowest" in q or "least" in q:
+        return {"source_type": "faculty_week_summary", "superlative": True}
+
+    if ("free" in q or "available" in q or "not teaching" in q) and has_day:
+        return {"source_type": "slot_roster" if has_period else "day_roster"}
+
+    if any(word in q for word in ["workload", "total", "how many", "compare", "periods"]):
+        return {"source_type": "faculty_week_summary"}
+
+    return {}
 
 
 def _try_direct_lookup(user_question: str, sem_id: str = None) -> Optional[str]:
@@ -403,11 +501,549 @@ def _decompose_query(question: str, sem_id: str = None) -> list[str]:
     return sub_queries
 
 
+def _invoke_rag_llm(prompt: str) -> str:
+    if not config.GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY not set")
+
+    from langchain_groq import ChatGroq
+
+    models_to_try = [config.GROQ_MODEL, config.GROQ_MODEL_ALT]
+    last_error = None
+
+    for model_idx, model_name in enumerate(models_to_try):
+        llm = ChatGroq(
+            model=model_name,
+            api_key=config.GROQ_API_KEY,
+            temperature=0.0,
+            max_tokens=250,
+        ).bind(stop=RAG_STOP_SEQUENCES)
+        label = f"Groq/{model_name}"
+
+        for attempt in range(3):
+            try:
+                response = llm.invoke(prompt)
+                text = getattr(response, "content", None) or str(response)
+                if text and text.strip():
+                    return text.strip()
+                raise RuntimeError(f"{label} returned an empty response.")
+            except Exception as exc:  # noqa: BLE001
+                err = str(exc).lower()
+                is_rate = "429" in err or "rate" in err or "too many" in err
+                is_overload = "503" in err or "overload" in err or "unavailable" in err
+                is_invalid = ("401" in err or "unauthorized" in err) and "decommission" not in err
+                is_not_found = (
+                    "404" in err or "not found" in err or "does not exist" in err
+                    or "decommissioned" in err or "model_decommissioned" in err
+                )
+
+                if is_invalid:
+                    raise RuntimeError(
+                        "GROQ_API_KEY is invalid or unauthorized. Check your key in .env"
+                    ) from exc
+
+                if is_not_found and model_idx < len(models_to_try) - 1:
+                    LOGGER.warning("%s model not found; trying fallback model.", label)
+                    last_error = exc
+                    break
+
+                if is_rate or is_overload:
+                    if attempt < 2:
+                        wait = 2.0 * (2 ** attempt)
+                        LOGGER.warning(
+                            "%s temporarily unavailable (attempt %d/3). Waiting %.1fs.",
+                            label,
+                            attempt + 1,
+                            wait,
+                        )
+                        time.sleep(wait)
+                        last_error = exc
+                        continue
+                    if model_idx < len(models_to_try) - 1:
+                        LOGGER.warning("%s exhausted; trying fallback model.", label)
+                        last_error = exc
+                        break
+                    raise RuntimeError(
+                        f"All Groq models rate limited or unavailable. Error: {exc}"
+                    ) from exc
+
+                LOGGER.error("%s error: %s", label, exc)
+                raise
+
+    raise RuntimeError(f"All LLM options failed. Last error: {last_error}")
+
+
+def _extract_query_faculty_ids(question: str) -> list[str]:
+    return list(dict.fromkeys(re.findall(r"\bF\d{2}\b", question.upper())))
+
+
+def _load_faculty_name_map(sem_id: str = None) -> dict[str, str]:
+    try:
+        if sem_id is not None:
+            from config import get_sem_paths
+            faculty_path = get_sem_paths(sem_id).data_dir / "faculty.csv"
+        else:
+            faculty_path = config.DATA_DIR / "faculty.csv"
+        faculty_df = pd.read_csv(faculty_path)
+        return {
+            str(row["faculty_id"]).strip(): str(row["name"]).strip()
+            for _, row in faculty_df.iterrows()
+        }
+    except Exception:
+        return {}
+
+
+def _format_substitute_answer(result: dict) -> str:
+    absent_name = result.get("absent_faculty_name", result.get("absent_faculty", "Unknown faculty"))
+    absent_id = result.get("absent_faculty", "")
+    absent_day = result.get("absent_day", "")
+
+    lines = [f"Substitute plan for {absent_name} ({absent_id}) on {absent_day}:"]
+
+    substitutions = result.get("substitutions", [])
+    substitution_by_period = {item["period"]: item for item in substitutions}
+
+    for slot in result.get("original_slots", []):
+        period = slot.get("period", "?")
+        course = slot.get("course", "?")
+        section = slot.get("section", "?")
+        chosen = substitution_by_period.get(period)
+        if chosen:
+            projected = chosen.get("projected_load")
+            load_suffix = f", load {projected}" if projected else ""
+            lines.append(
+                f"- {period} Section {section} {course}: "
+                f"{chosen.get('substitute_name', '?')} ({chosen.get('substitute_id', '?')}) "
+                f"[{chosen.get('match_type', 'candidate')}{load_suffix}]"
+            )
+        else:
+            lines.append(f"- {period} Section {section} {course}: No substitute available")
+
+    unresolved = result.get("unresolved", [])
+    if unresolved:
+        unresolved_periods = ", ".join(item.get("period", "?") for item in unresolved)
+        lines.append(f"Unresolved periods: {unresolved_periods}")
+
+    return "\n".join(lines)
+
+
+def _normalize_substitute_result(result: dict) -> list[dict]:
+    docs = []
+    substitutions = result.get("substitutions", [])
+    substitution_by_period = {item["period"]: item for item in substitutions}
+
+    for slot in result.get("original_slots", []):
+        period = slot.get("period", "?")
+        chosen = substitution_by_period.get(period)
+        if chosen:
+            text = (
+                f"Substitute suggestion for {result.get('absent_faculty')} on {result.get('absent_day')} "
+                f"{period}: Section {slot.get('section', '?')} {slot.get('course', '?')} -> "
+                f"{chosen.get('substitute_id', '?')} ({chosen.get('substitute_name', '?')}); "
+                f"match_type={chosen.get('match_type', '?')}; projected_load={chosen.get('projected_load', '?')}."
+            )
+        else:
+            text = (
+                f"Substitute suggestion for {result.get('absent_faculty')} on {result.get('absent_day')} "
+                f"{period}: Section {slot.get('section', '?')} {slot.get('course', '?')} -> no substitute available."
+            )
+
+        docs.append({
+            "source_type": "substitute",
+            "text": text,
+            "score": 0.0,
+            "source": "substitute_finder",
+            "metadata": {
+                "faculty": result.get("absent_faculty"),
+                "day": result.get("absent_day"),
+                "period": period,
+                "section": slot.get("section"),
+            },
+        })
+
+    return docs
+
+
+def _handle_substitute_query(intent: dict, sem_id: str = None) -> tuple[str, list[dict]]:
+    faculty_id = intent.get("faculty_id")
+    day = intent.get("day")
+
+    if not faculty_id or not day:
+        return (
+            "Please specify the absent faculty ID and day, for example: "
+            "\"Find a substitute for F01 on Tuesday.\"",
+            [],
+        )
+
+    try:
+        from src.phase5.substitute import find_substitute
+        result = find_substitute(faculty_id, day, sem_id=sem_id)
+        return _format_substitute_answer(result), _normalize_substitute_result(result)
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("[Substitute] Direct routing failed (%s).", exc)
+        return f"Substitute finder error: {exc}", []
+
+
+def _extract_free_faculty_ids(doc_text: str) -> list[str]:
+    faculty_ids: list[str] = []
+    for line in doc_text.splitlines():
+        match = _FREE_LINE_PATTERN.search(line.strip())
+        if not match:
+            continue
+        values = match.group(1).strip()
+        if not values or values.lower() == "none":
+            continue
+        faculty_ids.extend(
+            item.strip()
+            for item in values.split(",")
+            if item.strip()
+        )
+    return list(dict.fromkeys(faculty_ids))
+
+
+def _extract_free_room_ids(doc_text: str) -> list[str]:
+    rooms: list[str] = []
+    for line in doc_text.splitlines():
+        match = _FREE_LINE_PATTERN.search(line.strip())
+        if not match:
+            continue
+        values = match.group(1).strip()
+        if not values or values.lower() == "none":
+            continue
+        rooms.extend(
+            item.strip()
+            for item in values.split(",")
+            if item.strip()
+        )
+    return list(dict.fromkeys(rooms))
+
+
+def _extract_profile_field(doc_text: str, field_name: str) -> Optional[str]:
+    match = re.search(rf"{re.escape(field_name)}:\s*([^.]*)\.", doc_text)
+    return match.group(1).strip() if match else None
+
+
+def _summarize_faculty_week(doc: dict) -> Optional[tuple[str, int, list[str]]]:
+    faculty_id = doc.get("faculty")
+    if not faculty_id:
+        match = re.search(r"\bF\d{2}\b", doc.get("text", ""))
+        faculty_id = match.group(0) if match else None
+    if not faculty_id:
+        return None
+
+    total_periods = 0
+    active_days: list[str] = []
+    for line in doc.get("text", "").splitlines():
+        match = _DAY_LINE_PATTERN.match(line)
+        if not match:
+            continue
+        day_name, detail = match.groups()
+        periods = re.findall(r"\bP\d\b", detail)
+        if periods:
+            total_periods += len(periods)
+            active_days.append(day_name[:3].title())
+
+    return faculty_id, total_periods, active_days
+
+
+def _build_workload_comparison_answer(user_question: str,
+                                      retrieved_docs: list[dict]) -> Optional[str]:
+    summaries = {}
+    for doc in retrieved_docs:
+        summary = _summarize_faculty_week(doc)
+        if summary:
+            faculty_id, total_periods, active_days = summary
+            summaries[faculty_id] = (total_periods, active_days)
+
+    ordered_ids = _extract_query_faculty_ids(user_question)
+    ordered_ids = [fid for fid in ordered_ids if fid in summaries]
+    if len(ordered_ids) < 2:
+        ordered_ids = sorted(summaries)[:2]
+    if len(ordered_ids) < 2:
+        return None
+
+    first, second = ordered_ids[:2]
+    first_total, first_days = summaries[first]
+    second_total, second_days = summaries[second]
+
+    if first_total == second_total:
+        conclusion = f"{first} and {second} have the same workload."
+    elif first_total > second_total:
+        conclusion = f"{first} has {first_total - second_total} more periods than {second}."
+    else:
+        conclusion = f"{second} has {second_total - first_total} more periods than {first}."
+
+    return "\n".join([
+        f"- {first}: {first_total} periods ({', '.join(first_days) if first_days else 'none'})",
+        f"- {second}: {second_total} periods ({', '.join(second_days) if second_days else 'none'})",
+        f"- Conclusion: {conclusion}",
+    ])
+
+
+def _build_faculty_profile_answer(user_question: str,
+                                  retrieved_docs: list[dict]) -> Optional[str]:
+    if not retrieved_docs:
+        return None
+
+    doc = retrieved_docs[0]
+    text = doc.get("text", "")
+    faculty_id = doc.get("faculty") or doc.get("faculty_id") or _extract_query_faculty_id(user_question)
+    name = _extract_profile_field(text, "Name")
+    designation = _extract_profile_field(text, "Designation")
+
+    q = user_question.lower()
+    if "designation of" in q:
+        if designation:
+            return f"{faculty_id} is {designation}."
+        return "The retrieved data is incomplete for this query."
+
+    if "name of" in q:
+        if name:
+            return f"{faculty_id} is {name}."
+        return "The retrieved data is incomplete for this query."
+
+    if "who is" in q:
+        if name and designation:
+            return f"{faculty_id} is {name}, {designation}."
+        if name:
+            return f"{faculty_id} is {name}."
+        return "The retrieved data is incomplete for this query."
+
+    return None
+
+
+def _build_workload_superlative_answer(user_question: str,
+                                       retrieved_docs: list[dict],
+                                       sem_id: str = None) -> Optional[str]:
+    summaries = {}
+    for doc in retrieved_docs:
+        summary = _summarize_faculty_week(doc)
+        if summary:
+            faculty_id, total_periods, _active_days = summary
+            summaries[faculty_id] = total_periods
+
+    if not summaries:
+        return None
+
+    q = user_question.lower()
+    is_lowest = "lowest" in q or "least" in q
+    label = "Lowest" if is_lowest else "Highest"
+    target_value = min(summaries.values()) if is_lowest else max(summaries.values())
+    faculty_name_map = _load_faculty_name_map(sem_id=sem_id)
+
+    sorted_items = sorted(
+        summaries.items(),
+        key=lambda item: (item[1], item[0]) if is_lowest else (-item[1], item[0]),
+    )
+    lines = []
+    for faculty_id, total_periods in sorted_items:
+        name = faculty_name_map.get(faculty_id, faculty_id)
+        lines.append(f"- {name} ({faculty_id}): {total_periods} periods")
+
+    winners = [
+        f"{faculty_name_map.get(faculty_id, faculty_id)} ({faculty_id})"
+        for faculty_id, total_periods in sorted_items
+        if total_periods == target_value
+    ]
+    lines.append(f"{label}: {', '.join(winners)}")
+    return "\n".join(lines)
+
+
+def _best_retrieved_snippet(user_question: str, retrieved_docs: list[dict]) -> str:
+    q = user_question.lower()
+    sec_match = re.search(r"\bsection\s+([A-Za-z])\b", user_question, re.IGNORECASE)
+    target_section = sec_match.group(1).upper() if sec_match else None
+    target_day = next((day.title() for day in _QUERY_DAYS if day in q), None)
+
+    if target_section and target_day:
+        for doc in retrieved_docs:
+            if doc.get("section") == target_section and doc.get("day") == target_day:
+                if doc.get("period") in (None, "", "all"):
+                    return doc.get("text", "")
+
+    for doc in retrieved_docs:
+        text = doc.get("text", "")
+        if text:
+            return text
+    return ""
+
+
+def _fallback_rag_answer(user_question: str,
+                         retrieved_docs: list[dict],
+                         sem_id: str = None) -> str:
+    if not retrieved_docs:
+        return "The retrieved data is incomplete for this query."
+
+    structured_answer = _build_structured_rag_answer(
+        user_question,
+        retrieved_docs,
+        sem_id=sem_id,
+    )
+    if structured_answer:
+        return structured_answer
+
+    intent = detect_query_intent(user_question)
+    q = user_question.lower()
+
+    if intent.get("source_type") in {"slot_roster", "day_roster"}:
+        free_ids: list[str] = []
+        for doc in retrieved_docs:
+            free_ids.extend(_extract_free_faculty_ids(doc.get("text", "")))
+        free_ids = list(dict.fromkeys(free_ids))
+        if free_ids:
+            return "\n".join(f"- {fid}" for fid in free_ids)
+        return "The retrieved data is incomplete for this query."
+
+    if intent.get("source_type") == "faculty_week_summary" and "compare" in q:
+        comparison = _build_workload_comparison_answer(user_question, retrieved_docs)
+        if comparison:
+            return comparison
+        return "The retrieved data is incomplete for this query."
+
+    snippet = _best_retrieved_snippet(user_question, retrieved_docs)
+    return snippet if snippet else "The retrieved data is incomplete for this query."
+
+
+def _build_structured_rag_answer(user_question: str,
+                                 retrieved_docs: list[dict],
+                                 sem_id: str = None) -> Optional[str]:
+    intent = detect_query_intent(user_question)
+    q = user_question.lower()
+
+    if intent.get("source_type") in {"slot_roster", "day_roster"}:
+        free_ids: list[str] = []
+        for doc in retrieved_docs:
+            free_ids.extend(_extract_free_faculty_ids(doc.get("text", "")))
+        free_ids = list(dict.fromkeys(free_ids))
+        if free_ids:
+            return "\n".join(f"- {fid}" for fid in free_ids)
+        return "The retrieved data is incomplete for this query."
+
+    if intent.get("source_type") == "room_roster":
+        free_rooms: list[str] = []
+        for doc in retrieved_docs:
+            free_rooms.extend(_extract_free_room_ids(doc.get("text", "")))
+        free_rooms = list(dict.fromkeys(free_rooms))
+        if free_rooms:
+            return "\n".join(f"- {room}" for room in free_rooms)
+        return "The retrieved data is incomplete for this query."
+
+    if intent.get("source_type") == "faculty_profile":
+        profile_answer = _build_faculty_profile_answer(user_question, retrieved_docs)
+        if profile_answer:
+            return profile_answer
+        return "The retrieved data is incomplete for this query."
+
+    if intent.get("source_type") == "faculty_week_summary":
+        if intent.get("superlative"):
+            superlative = _build_workload_superlative_answer(
+                user_question,
+                retrieved_docs,
+                sem_id=sem_id,
+            )
+            if superlative:
+                return superlative
+            return "The retrieved data is incomplete for this query."
+
+        if "compare" in q or len(_extract_query_faculty_ids(user_question)) >= 2:
+            comparison = _build_workload_comparison_answer(user_question, retrieved_docs)
+            if comparison:
+                return comparison
+            return "The retrieved data is incomplete for this query."
+
+    return None
+
+
+def _answer_rag_query(user_question: str,
+                      retrieved_docs: list[dict],
+                      history: Optional[List[Tuple[str, str]]] = None,
+                      sem_id: str = None) -> str:
+    structured_answer = _build_structured_rag_answer(
+        user_question,
+        retrieved_docs,
+        sem_id=sem_id,
+    )
+    if structured_answer:
+        return structured_answer
+
+    context_text = "\n".join(
+        doc.get("text", "").strip()
+        for doc in retrieved_docs
+        if doc.get("text", "").strip()
+    )
+    if not context_text:
+        return "The retrieved data is incomplete for this query."
+
+    history_text = _history_block(history)
+    prompt = SYSTEM_PROMPT.format(context=context_text)
+    if history_text:
+        prompt = f"{prompt}\n\n{history_text}"
+    prompt = f"{prompt}\n\nQuestion: {user_question}".strip()
+
+    try:
+        return _invoke_rag_llm(prompt)
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("[RAG] LLM answer generation failed (%s). Using fallback.", exc)
+        return _fallback_rag_answer(user_question, retrieved_docs, sem_id=sem_id)
+
+
+def _normalize_doc(doc: dict) -> dict:
+    """
+    Normalise a raw retrieved doc into the shape expected by the UI:
+      source_type : coarse category (section / faculty / room / slot / other)
+      text        : the chunk text
+      score       : cross-encoder score if available, else 0.0
+      metadata    : dict with section / day / faculty if present
+    """
+    src = doc.get("source", "")
+    explicit_type = doc.get("source_type")
+    if explicit_type in {"section", "section_slot", "section_day", "section_week_summary"}:
+        source_type = "section"
+    elif explicit_type in {"faculty", "faculty_slot", "faculty_day", "faculty_week_summary", "faculty_profile"}:
+        source_type = "faculty"
+    elif explicit_type in {"room", "room_availability", "room_roster"}:
+        source_type = "room"
+    elif explicit_type in {"slot_summary", "slot_roster", "day_roster"}:
+        source_type = "slot"
+    elif explicit_type == "substitute":
+        source_type = "substitute"
+    elif "section" in src:
+        source_type = "section"
+    elif "faculty" in src:
+        source_type = "faculty"
+    elif "room" in src:
+        source_type = "room"
+    elif src == "slot_summary":
+        source_type = "slot"
+    else:
+        source_type = "other"
+
+    score = float(doc.get("ce_score", 0.0))
+
+    metadata = {}
+    for key in ("section", "day", "faculty", "faculty_id", "period"):
+        if key in doc:
+            metadata[key] = doc[key]
+
+    return {
+        "source_type": source_type,
+        "text":        doc.get("text", ""),
+        "score":       score,
+        "source":      src,
+        "metadata":    metadata,
+    }
+
+
 def explain_with_rag(user_question: str,
                      history: Optional[List[Tuple[str, str]]] = None,
-                     sem_id: str = None) -> str:
+                     sem_id: str = None) -> tuple:
     """
     Use RAG to retrieve relevant timetable context, then call explain().
+
+    Returns
+    -------
+    (answer_text: str, retrieved_docs: list[dict])
+        retrieved_docs contains normalised doc dicts (source_type, text, score, metadata).
+        Empty list when no RAG docs were used (fallback path).
 
     Routing logic
     -------------
@@ -416,24 +1052,48 @@ def explain_with_rag(user_question: str,
                     per sub-query → merge + dedup → explain()
     Any failure   → fall back to single-query path, then bare explain()
     """
-    import logging
-    _log = logging.getLogger(__name__)
-
     try:
         from src.phase5.rag_indexer import retrieve
+        intent_filter = detect_query_intent(user_question)
+
+        if intent_filter.get("route") == "substitute_finder":
+            return _handle_substitute_query(intent_filter, sem_id=sem_id)
+
+        if intent_filter:
+            relevant = retrieve(
+                user_question,
+                k=5,
+                sem_id=sem_id,
+                metadata_filter=intent_filter,
+            )
+            if relevant:
+                answer = _answer_rag_query(
+                    user_question,
+                    relevant,
+                    history=history,
+                    sem_id=sem_id,
+                )
+                return answer, [_normalize_doc(d) for d in relevant]
+            return "The retrieved data is incomplete for this query.", []
 
         if _is_multihop(user_question):
             # ── Multi-hop path ────────────────────────────────────────────────
             try:
                 sub_queries = _decompose_query(user_question, sem_id=sem_id)
-                _log.info("[RAG] Decomposed into %d sub-queries: %s",
-                          len(sub_queries), sub_queries)
+                LOGGER.info("[RAG] Decomposed into %d sub-queries: %s",
+                            len(sub_queries), sub_queries)
 
                 seen_texts: set[str] = set()
                 merged: list[dict] = []
 
                 for sq in sub_queries:
-                    for doc in retrieve(sq, k=3, sem_id=sem_id):
+                    subquery_intent = detect_query_intent(sq)
+                    for doc in retrieve(
+                        sq,
+                        k=3,
+                        sem_id=sem_id,
+                        metadata_filter=subquery_intent or None,
+                    ):
                         if doc["text"] not in seen_texts:
                             seen_texts.add(doc["text"])
                             merged.append(doc)
@@ -442,20 +1102,17 @@ def explain_with_rag(user_question: str,
                 merged = merged[:10]
 
                 if merged:
-                    context_lines = [r["text"] for r in merged]
-                    citations = list({r["source"] for r in merged})
-                    augmented_question = (
-                        f"Context from timetable data:\n"
-                        + "\n".join(context_lines)
-                        + f"\n\nQuestion: {user_question}"
-                        + f"\n\nSources: {', '.join(citations)}"
+                    answer = _answer_rag_query(
+                        user_question,
+                        merged,
+                        history=history,
+                        sem_id=sem_id,
                     )
-                    return explain(augmented_question, history=history,
-                                  sem_id=sem_id)
+                    return answer, [_normalize_doc(d) for d in merged]
 
             except Exception as decomp_err:
                 # Graceful fallback — log and continue to single-query path
-                _log.warning(
+                LOGGER.warning(
                     "[RAG] Decomposition failed (%s). "
                     "Falling back to single-query retrieval.",
                     decomp_err,
@@ -465,20 +1122,19 @@ def explain_with_rag(user_question: str,
         # ── Simple (or fallback) path — identical to original behaviour ───────
         relevant = retrieve(user_question, k=5, sem_id=sem_id)
         if relevant:
-            context_lines = [r["text"] for r in relevant]
-            citations = list({r["source"] for r in relevant})
-            augmented_question = (
-                f"Context from timetable data:\n"
-                + "\n".join(context_lines)
-                + f"\n\nQuestion: {user_question}"
-                + f"\n\nSources: {', '.join(citations)}"
+            answer = _answer_rag_query(
+                user_question,
+                relevant,
+                history=history,
+                sem_id=sem_id,
             )
-            return explain(augmented_question, history=history, sem_id=sem_id)
+            return answer, [_normalize_doc(d) for d in relevant]
 
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("[RAG] Retrieval pipeline failed (%s). Falling back.", exc)
 
-    return explain(user_question, history=history, sem_id=sem_id)
+    # Bare fallback — no RAG docs available
+    return explain(user_question, history=history, sem_id=sem_id), []
 
 
 def detect_issues() -> str:
