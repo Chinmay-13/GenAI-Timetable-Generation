@@ -1065,16 +1065,24 @@ WHAT YOU CANNOT DO:
   • Access data outside the outputs/ and data/ directories
 
 ABSENCE HANDLING — follow this exact order:
-  1. get_absent_periods(faculty_id, day)         → confirm actual periods
-  2. simulate_substitute(faculty_id, day, Pn)    → show top 3 candidates
-  3. Wait for user to select a candidate
-  4. commit_substitute(...)                      → apply after confirmation
-  5. generate_session_summary()                  → log the session
+  1. get_absent_periods(faculty_id, day)         → confirm actual periods taught
+  2. simulate_substitute(faculty_id, day, Pn)    → show top 3 candidates per period
+  3. commit_substitute(section, day, p_start, p_end, absent_fac, top_candidate, reason)
+                                                 → writes a PREVIEW (temp folder only,
+                                                   no live files changed yet)
+                                                 → return the diff summary to the user
+  4. Ask user to confirm by clicking the Confirm button in the UI.
+     Once confirmed, apply_pending_preview() will be called automatically.
+     Do NOT call apply_pending_preview yourself — the UI button handles it.
+  5. After confirmation, call generate_session_summary() to log the session.
 
 RULES:
   • NEVER guess period numbers — always call get_absent_periods first
+  • After simulate_substitute, ALWAYS proceed to commit_substitute immediately
+    with the top-ranked candidate — do not wait for user to manually select.
+    The PREVIEW is safe: nothing is committed until the user clicks Confirm.
   • Lab periods P5–P6 must always be substituted as an atomic block
-  • Always state when you are simulating vs committing
+  • Always state when you are simulating vs writing a preview vs committing
   • If data is unavailable, say so clearly and suggest running run_all.py
   • When answering questions about room availability, always read from
     outputs/room_assignment.csv using the get_room_availability tool.

@@ -647,6 +647,8 @@ def preview_schedule_change(change_dict: dict, sem_id: str = None) -> dict:
     if missing:
         raise ValueError(f"preview_schedule_change: missing keys {missing}")
 
+    print(f"[DEBUG] preview_schedule_change called | sem_id={sem_id!r} | change_dict={change_dict}")
+
     out: Path = get_sem_paths(sem_id).output_dir if sem_id else OUTPUT_DIR
 
     section     = str(change_dict["section"]).upper()
@@ -718,6 +720,7 @@ def preview_schedule_change(change_dict: dict, sem_id: str = None) -> dict:
             diff_lines.append(f"  {col}: annotated →{new_fac}")
 
     logger.info("Preview created: op_id=%s, temp_dir=%s", op_id, temp_dir)
+    print(f"[DEBUG] preview written to: {temp_dir}  (op_id={op_id})")
     return {
         "op_id":        op_id,
         "temp_dir":     str(temp_dir),

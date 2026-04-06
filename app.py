@@ -85,6 +85,10 @@ def _init_state():
         st.session_state._agent_preview_op_id = None
     if "_last_agent_wrote" not in st.session_state:
         st.session_state._last_agent_wrote = False
+    if "_agent_last_fac" not in st.session_state:
+        st.session_state._agent_last_fac = None
+    if "_agent_last_day" not in st.session_state:
+        st.session_state._agent_last_day = None
 
     # Orphan temp-folder cleanup (older than 24 h)
     for _sem in list_available_semesters():
@@ -1263,6 +1267,18 @@ def _render_ai_agent():
         f"Find their schedule, identify substitute candidates for each period, "
         f"and present the top 3 options. DO NOT commit without my confirmation."
     )
+
+    # Auto-update textarea when faculty or day changes.
+    # st.text_area only respects value= on first render once its key exists,
+    # so we pop the key whenever the selection changes to force a fresh default.
+    if (
+        st.session_state.get("_agent_last_fac") != absent_fac
+        or st.session_state.get("_agent_last_day") != absent_day
+    ):
+        st.session_state["_agent_last_fac"] = absent_fac
+        st.session_state["_agent_last_day"] = absent_day
+        st.session_state.pop("agent_instruction", None)
+
     instruction = st.text_area(
         "Agent Instruction",
         value=default_instr,
