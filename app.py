@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -71,6 +72,8 @@ def _init_state():
         st.session_state._rag_debug = {}
     if "agent_output" not in st.session_state:
         st.session_state.agent_output = ""
+    if "agent_steps" not in st.session_state:
+        st.session_state.agent_steps = []
     if "current_page" not in st.session_state:
         st.session_state.current_page = "Dashboard"
     if "_agent_confirm" not in st.session_state:
@@ -85,6 +88,8 @@ def _init_state():
         st.session_state._agent_preview_op_id = None
     if "_last_agent_wrote" not in st.session_state:
         st.session_state._last_agent_wrote = False
+    if "_agent_session_started_at" not in st.session_state:
+        st.session_state._agent_session_started_at = datetime.now(timezone.utc).isoformat()
     if "_agent_last_fac" not in st.session_state:
         st.session_state._agent_last_fac = None
     if "_agent_last_day" not in st.session_state:
@@ -383,7 +388,9 @@ def _render_sidebar():
             st.session_state.sem_id = chosen
             st.session_state.chat_history = []
             st.session_state.agent_output = ""
+            st.session_state.agent_steps = []
             st.session_state._rag_debug = {}
+            st.session_state._agent_session_started_at = datetime.now(timezone.utc).isoformat()
             st.cache_data.clear()
             # Clear ai_explainer module-level context cache
             try:
@@ -1263,6 +1270,44 @@ def _render_ai_agent():
     sem_paths = get_sem_paths(sem_id)
     out = sem_paths.output_dir
 
+    def _summarize_agent_step_value(value, limit: int) -> str:
+        text = re.sub(r"\s+", " ", str(value or "")).strip()
+        if len(text) <= limit:
+            return text
+        return text[: limit - 3] + "..."
+
+    def _render_agent_tool_flow(steps, container=None):
+        if not steps:
+            return
+        target = container if container is not None else st
+        with target.expander(
+            f"Agent tool flow ({len(steps)} steps)",
+            expanded=False,
+        ):
+            for step_num, step in enumerate(steps, 1):
+                tool_name = step.get("tool_name", "?")
+                tool_input = _summarize_agent_step_value(
+                    step.get("tool_input", ""),
+                    80,
+                )
+                tool_result = _summarize_agent_step_value(
+                    step.get("tool_result", ""),
+                    120,
+                )
+                st.markdown(
+                    f"**Step {step_num}** -> `{tool_name}`  \n"
+                    f"Input: `{tool_input}`  \n"
+                    f"Result: {tool_result}"
+                )
+
+    def _render_agent_response(output_text: str):
+        st.markdown("### Agent Response")
+        st.markdown(
+            f'<div style="background:#f8fafc;border:1px solid #e2e8f0;'
+            f'border-radius:8px;padding:16px;">{output_text}</div>',
+            unsafe_allow_html=True,
+        )
+
     # ── Handle pending confirmation (direct commit — no LLM re-run) ────────────
     if st.session_state.get("_agent_confirm") and st.session_state.get("_agent_preview_op_id"):
         op_id = st.session_state._agent_preview_op_id
@@ -1341,21 +1386,34 @@ def _render_ai_agent():
     if st.button("▶ Run Agent", type="primary"):
         # Store instruction before running so confirmation can replay it
         st.session_state._agent_pending_instruction = instruction
+        st.session_state.agent_output = ""
+        st.session_state.agent_steps = []
         with st.spinner("Agent working…"):
             try:
                 from src.phase5.agent import create_timetable_agent
                 # Bug #4 fix: wrap in try/except, clean message only
-                agent = create_timetable_agent(sem_id=sem_id)
+                agent = create_timetable_agent(
+                    sem_id=sem_id,
+                    session_started_at=st.session_state._agent_session_started_at,
+                )
                 if agent is None:
                     st.warning(
                         "Agent unavailable — check GROQ_API_KEY and LangChain installation."
                     )
                 else:
-                    result = agent({"input": instruction})
+                    def _update_agent_tool_flow(step_list):
+                        st.session_state.agent_steps = list(step_list)
+
+                    result = agent({
+                        "input": instruction,
+                        "step_callback": _update_agent_tool_flow,
+                    })
                     output = result.get("output", "")
                     reasoning = result.get("reasoning", [])
+                    steps = result.get("steps", [])
 
                     st.session_state.agent_output = output
+                    st.session_state.agent_steps = steps
 
                     # ── Detect if agent wrote a preview ───────────────────────
                     try:
@@ -1367,12 +1425,8 @@ def _render_ai_agent():
                     except Exception:
                         pass
 
-                    st.markdown("### Agent Response")
-                    st.markdown(
-                        f'<div style="background:#f8fafc;border:1px solid #e2e8f0;'
-                        f'border-radius:8px;padding:16px;">{output}</div>',
-                        unsafe_allow_html=True,
-                    )
+                    _render_agent_response(output)
+                    _render_agent_tool_flow(steps)
 
                     if reasoning:
                         with st.expander("🔧 Reasoning chain"):
@@ -1456,6 +1510,7 @@ def _render_ai_agent():
                             st.info("Change cancelled.")
                             st.session_state._agent_pending_instruction = None
                             st.session_state.agent_output = ""
+                            st.session_state.agent_steps = []
 
             except Exception as e:
                 # Bug #4 fix: never show stack trace
@@ -1466,6 +1521,10 @@ def _render_ai_agent():
                 # dev detail in expander only
                 with st.expander("Technical detail (dev)"):
                     st.code(str(e))
+
+    elif st.session_state.agent_output:
+        _render_agent_response(st.session_state.agent_output)
+        _render_agent_tool_flow(st.session_state.agent_steps)
 
     # ── Recent operations panel ───────────────────────────────────────────────
     agent_ops_dir = sem_paths.agent_ops_dir
