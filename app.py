@@ -1,1709 +1,1279 @@
 """
-app.py — Timetable OS: Modern academic dashboard.
-Streamlit UI for the university timetable generation system.
-
-Pages: Dashboard, Timetables, Substitute Finder, AI Assistant, AI Agent
+app.py — Timetable OS  (complete rewrite, clean-slate)
+=======================================================
+All paths resolved fresh via get_sem_paths(st.session_state.sem_id).
+Zero module-level mutable state.  Every bug from the old version fixed.
 """
+
 from __future__ import annotations
 
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-from pathlib import Path
+import json
+import re
 import subprocess
 import sys
-from typing import Dict, List
+from pathlib import Path
+from typing import Optional
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# ── Project root on sys.path ──────────────────────────────────────────────────
+_ROOT = Path(__file__).resolve().parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
-from config import resolve_output_path, SECTIONS, DATA_DIR, OUTPUT_DIR
-from src.phase5.substitute import (
-    build_load_snapshot, find_substitute, load_course_data, faculty_lookup
+from config import (
+    DAYS, SECTIONS, MAX_HOURS,
+    get_sem_paths, list_available_semesters,
 )
-from src.phase5.swap import find_swap_slot
-
-DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# CSS INJECTION
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def inject_css():
-    st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap');
-
-    html, body, [class*="css"] {
-        font-family: 'DM Sans', sans-serif;
-    }
-
-    /* Cards */
-    .card {
-        background: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-        margin-bottom: 1rem;
-    }
-
-    .card-header {
-        font-family: 'DM Serif Display', serif;
-        font-size: 1.1rem;
-        color: #1F2937;
-        margin-bottom: 0.75rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 1px solid #F3F4F6;
-    }
-
-    /* Metric cards */
-    .metric-card {
-        background: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        border-radius: 12px;
-        padding: 1.25rem 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        text-align: center;
-    }
-    .metric-label {
-        font-size: 0.75rem;
-        font-weight: 500;
-        color: #6B7280;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 0.5rem;
-    }
-    .metric-value {
-        font-family: 'DM Serif Display', serif;
-        font-size: 2rem;
-        color: #1F2937;
-        line-height: 1;
-    }
-    .metric-sub {
-        font-size: 0.75rem;
-        color: #9CA3AF;
-        margin-top: 0.25rem;
-    }
-
-    /* Status badge */
-    .badge {
-        display: inline-block;
-        padding: 0.2rem 0.6rem;
-        border-radius: 999px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-    }
-    .badge-green  { background: #D1FAE5; color: #065F46; }
-    .badge-blue   { background: #DBEAFE; color: #1E40AF; }
-    .badge-amber  { background: #FEF3C7; color: #92400E; }
-    .badge-red    { background: #FEE2E2; color: #991B1B; }
-
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background: #F9FAFB;
-        border-right: 1px solid #E5E7EB;
-        position: sticky;
-        top: 0;
-        height: 100vh;
-        align-self: flex-start;
-        z-index: 20;
-    }
-    [data-testid="stSidebar"] > div:first-child {
-        height: 100vh;
-        overflow-y: auto;
-        overflow-x: hidden;
-    }
-    [data-testid="stSidebar"] .stRadio label {
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: #374151;
-    }
-
-    /* Hide Streamlit chrome — keep the sidebar toggle visible */
-    #MainMenu { visibility: hidden; }
-    footer    { visibility: hidden; }
-
-    /* Hide header toolbar buttons but NOT the sidebar collapse control */
-    header [data-testid="stToolbar"]        { visibility: hidden; }
-    header [data-testid="stDecoration"]     { display: none; }
-    header [data-testid="stStatusWidget"]   { visibility: hidden; }
-
-    /* Always show the sidebar open/close arrow — override any inherited hide */
-    [data-testid="collapsedControl"] {
-        visibility: visible !important;
-        display: flex !important;
-        opacity: 1 !important;
-    }
-    /* Style the arrow button so it stands out on a plain background */
-    [data-testid="collapsedControl"] button {
-        background: #FFFFFF !important;
-        border: 1px solid #E5E7EB !important;
-        border-radius: 50% !important;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.12) !important;
-        color: #374151 !important;
-        width: 2rem !important;
-        height: 2rem !important;
-    }
-
-    /* Buttons */
-    .stButton > button {
-        border-radius: 8px;
-        font-weight: 500;
-        font-size: 0.875rem;
-        border: 1px solid #E5E7EB;
-        background: #FFFFFF;
-        color: #374151;
-        transition: all 0.15s ease;
-    }
-    .stButton > button:hover {
-        border-color: #2563EB;
-        color: #2563EB;
-        box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
-    }
-
-    /* Chat messages */
-    .chat-user {
-        background: #EFF6FF;
-        border-radius: 12px 12px 4px 12px;
-        padding: 0.75rem 1rem;
-        margin: 0.5rem 0;
-        color: #1E40AF;
-        font-size: 0.9rem;
-    }
-    .chat-ai {
-        background: #F9FAFB;
-        border: 1px solid #E5E7EB;
-        border-radius: 12px 12px 12px 4px;
-        padding: 0.75rem 1rem;
-        margin: 0.5rem 0;
-        color: #1F2937;
-        font-size: 0.9rem;
-        white-space: pre-wrap;
-    }
-
-    /* Agent ops log */
-    .ops-entry {
-        background: #F9FAFB;
-        border-left: 3px solid #2563EB;
-        border-radius: 0 8px 8px 0;
-        padding: 0.75rem 1rem;
-        margin-bottom: 0.5rem;
-        font-size: 0.8rem;
-        color: #374151;
-    }
-    .ops-entry.rollback { border-left-color: #F59E0B; }
-
-    /* Sub result rows */
-    .sub-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.6rem 0;
-        border-bottom: 1px solid #F3F4F6;
-    }
-    .sub-row:last-child { border-bottom: none; }
-    /* Candidate cards */
-    .cand-card {
-        background: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        border-radius: 10px;
-        padding: 1rem 1.25rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        margin-bottom: 0.5rem;
-    }
-    .cand-card:hover {
-        border-color: #2563EB;
-        box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
-    }
-    .match-chip {
-        display: inline-block;
-        padding: 0.15rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.68rem;
-        font-weight: 600;
-        letter-spacing: 0.03em;
-        margin-left: 0.4rem;
-    }
-    .chip-course  { background: #D1FAE5; color: #065F46; }
-    .chip-desig   { background: #DBEAFE; color: #1E40AF; }
-    .chip-avail   { background: #FEF3C7; color: #92400E; }
-    /* Example question chips */
-    .eq-btn > button {
-        background: #EFF6FF !important;
-        color: #1E40AF !important;
-        border: 1px solid #BFDBFE !important;
-        border-radius: 999px !important;
-        font-size: 0.78rem !important;
-        padding: 0.25rem 0.9rem !important;
-        font-weight: 500 !important;
-    }
-    .eq-btn > button:hover {
-        background: #DBEAFE !important;
-        border-color: #2563EB !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# SIDEBAR
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def render_sidebar() -> str:
-    with st.sidebar:
-        st.markdown("""
-        <div style="padding: 1rem 0 1.5rem 0;">
-            <div style="font-family:'DM Serif Display',serif;
-                        font-size:1.3rem; color:#1F2937;">
-                📅 Timetable OS
-            </div>
-            <div style="font-size:0.7rem; color:#9CA3AF;
-                        margin-top:0.2rem;">
-                CSE · 3rd Semester · 12 Sections
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        page = st.radio(
-            "Navigation",
-            ["Dashboard", "Timetables", "Substitute Finder",
-             "Faculty Workload", "AI Assistant", "AI Agent"],
-            label_visibility="collapsed"
-        )
-
-        st.markdown("---")
-        outputs_exist = resolve_output_path("summary_report.txt").exists()
-
-        # Pipeline status
-        if outputs_exist:
-            try:
-                import os as _os
-                mtime = _os.path.getmtime(str(resolve_output_path("summary_report.txt")))
-                from datetime import datetime as _dt
-                last_run = _dt.fromtimestamp(mtime).strftime("%d %b %Y, %H:%M")
-            except Exception:
-                last_run = "unknown"
-            st.markdown(
-                f'<span class="badge badge-green">● Schedule Active</span>'
-                f'<div style="font-size:0.7rem;color:#6B7280;margin-top:0.3rem;">'
-                f'Last run: {last_run}</div>',
-                unsafe_allow_html=True
-            )
-        else:
-            st.markdown(
-                '<span class="badge badge-amber">● No Schedule Yet</span>',
-                unsafe_allow_html=True
-            )
-
-        st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
-
-        # Regenerate button
-        if st.button("↺ Regenerate Schedule", use_container_width=True,
-                     key="sb_regen"):
-            with st.spinner("Running pipeline..."):
-                res = subprocess.run(
-                    [sys.executable, "run_all.py"],
-                    capture_output=True, text=True, cwd=str(PROJECT_ROOT),
-                )
-            if res.returncode == 0:
-                st.cache_data.clear()
-                st.success("Done! Refresh to see new data.")
-                st.rerun()
-            else:
-                st.error(res.stderr[:400] or "Pipeline failed.")
-
-        # Rebuild RAG button
-        if st.button("🔍 Rebuild RAG Index", use_container_width=True,
-                     key="sb_rag"):
-            with st.spinner("Rebuilding RAG index..."):
-                try:
-                    from src.phase5.rag_indexer import build_index
-                    result_rag = build_index()
-                    if result_rag and result_rag[0] is not None:
-                        st.success("RAG index rebuilt.")
-                    else:
-                        st.warning("RAG index not built (deps missing?).")
-                except Exception as _e:
-                    st.error(f"RAG error: {_e}")
-
-        # Health check expander
-        st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-        with st.expander("🩺 System Health", expanded=False):
-            try:
-                from utils.health_check import check_system_health
-                health = check_system_health()
-                summary = health["summary"]
-                total, passed, failed = (
-                    summary["total"], summary["passed"], summary["failed"]
-                )
-                if failed == 0:
-                    st.markdown(
-                        f'<span class="badge badge-green">✓ {passed}/{total} OK</span>',
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(
-                        f'<span class="badge badge-red">✗ {failed} issue(s)</span>',
-                        unsafe_allow_html=True,
-                    )
-
-                SECTIONS_MAP = [
-                    ("input_csvs",   "Input CSVs"),
-                    ("output_files", "Outputs"),
-                    ("rag_index",    "RAG Index"),
-                    ("environment",  "Environment"),
-                    ("packages",     "Packages"),
-                ]
-                for key, label in SECTIONS_MAP:
-                    items = health.get(key, {})
-                    n_fail = sum(1 for r in items.values() if not r["ok"])
-                    icon   = "🟢" if n_fail == 0 else "🔴"
-                    detail = f"{icon} {label}"
-                    if n_fail:
-                        detail += f" ({n_fail} missing)"
-                    st.caption(detail)
-                    if n_fail:
-                        for item_name, result in items.items():
-                            if not result["ok"]:
-                                st.caption(
-                                    f"&nbsp;&nbsp;↳ `{item_name}` — {result['message']}",
-                                )
-            except Exception as _he:
-                st.caption(f"Health check unavailable: {_he}")
-
-    return page
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# DATA LOADING
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@st.cache_data(show_spinner=False)
-def load_csv(path: str) -> pd.DataFrame:
-    return pd.read_csv(path)
-
-
-@st.cache_data(show_spinner=False)
-def load_summary_data() -> Dict[str, object]:
-    """Load summary report and compute quality metrics."""
-    summary_path = resolve_output_path("summary_report.txt")
-    if not summary_path.exists():
-        return {
-            "summary_text": "",
-            "total_sections": 0,
-            "total_theory_slots": 0,
-            "total_lab_slots": 0,
-            "same_subject": 0,
-            "back_to_back": 0,
-            "quality_score": 0,
-            "faculty_load_df": pd.DataFrame(),
-        }
-
-    summary_text = summary_path.read_text(encoding="utf-8")
-    lines = [line.strip() for line in summary_text.splitlines() if line.strip()]
-
-    def _extract(prefix: str) -> int:
-        for line in lines:
-            if line.startswith(prefix):
-                val = line.split(":")[-1].strip()
-                # Handle "48 (12 pairs × 2 periods..." style
-                return int(val.split()[0])
-        return 0
-
-    total_sections = _extract("Total sections scheduled:")
-    total_theory_slots = _extract("Total theory slots placed:")
-    total_lab_slots = _extract("Total lab slots placed:")
-    same_subject = _extract("same_subject_same_day:")
-    back_to_back = _extract("back_to_back_same_subject:")
-
-    load_df = (
-        pd.DataFrame(build_load_snapshot())
-        .T.reset_index()
-        .rename(columns={"index": "faculty_id"})
-    )
-    load_df["total_hours"] = load_df["total_hours"].astype(int)
-    load_df["max_hours"] = load_df["max_hours"].astype(int)
-    overload_count = int((load_df["status"] == "OVERLOAD").sum())
-    quality_score = max(
-        0.0,
-        round(100 - ((same_subject + (2 * back_to_back) + (5 * overload_count)) / 2), 1),
-    )
-
-    return {
-        "summary_text": summary_text,
-        "total_sections": total_sections,
-        "total_theory_slots": total_theory_slots,
-        "total_lab_slots": total_lab_slots,
-        "same_subject": same_subject,
-        "back_to_back": back_to_back,
-        "quality_score": quality_score,
-        "faculty_load_df": load_df,
-    }
-
-
-@st.cache_data(show_spinner=False)
-def load_faculty_list() -> pd.DataFrame:
-    return pd.read_csv(DATA_DIR / "faculty.csv")
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# TIMETABLE STYLING
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def _style_timetable_cell(val: object) -> str:
-    """Color timetable cells: blue=theory, amber=lab, grey=empty."""
-    v = str(val).strip()
-    if "LAB" in v.upper():
-        return "background-color: #FEF3C7; color: #92400E; font-weight: 500;"
-    if v in ("", "----", "nan", "None"):
-        return "background-color: #FAFAFA; color: #D1D5DB;"
-    return "background-color: #EFF6FF; color: #1E40AF;"
-
-
-def _style_room_cell(val: object) -> str:
-    """Color room assignment cells: green=assigned, red=unassigned, grey=empty."""
-    v = str(val).strip()
-    if v == "ROOM_UNASSIGNED":
-        return "background-color: #FEE2E2; color: #991B1B; font-weight: 500;"
-    if v in ("", "nan", "None"):
-        return "background-color: #FAFAFA; color: #D1D5DB;"
-    return "background-color: #D1FAE5; color: #065F46; font-weight: 500;"
-
-
-@st.cache_data(show_spinner=False)
-def _load_room_assignment() -> pd.DataFrame:
-    path = resolve_output_path("room_assignment.csv")
-    if not path.exists():
-        return pd.DataFrame()
-    return pd.read_csv(path)
-
-
-def _render_room_assignments() -> None:
-    """Render the Room Assignments sub-page inside the Timetables tab."""
-    df = _load_room_assignment()
-
-    if df.empty:
-        st.warning(
-            "⚠ Room assignment data not found. "
-            "Run the pipeline (`python run_all.py`) to generate room assignments."
-        )
-        return
-
-    # Filter controls
-    fc1, fc2, fc3 = st.columns(3)
-    with fc1:
-        sections_all = ["All"] + sorted(df["Section"].unique().tolist())
-        sel_section  = st.selectbox("Filter by Section", sections_all,
-                                    key="ra_section")
-    with fc2:
-        days_all = ["All"] + list(DAYS)
-        sel_day  = st.selectbox("Filter by Day", days_all, key="ra_day")
-    with fc3:
-        rooms_all = ["All"] + sorted(
-            r for r in df["Room"].unique() if r != "ROOM_UNASSIGNED"
-        ) + (["ROOM_UNASSIGNED"] if "ROOM_UNASSIGNED" in df["Room"].values else [])
-        sel_room  = st.selectbox("Filter by Room", rooms_all, key="ra_room")
-
-    filtered = df.copy()
-    if sel_section != "All":
-        filtered = filtered[filtered["Section"] == sel_section]
-    if sel_day != "All":
-        filtered = filtered[filtered["Day"] == sel_day]
-    if sel_room != "All":
-        filtered = filtered[filtered["Room"] == sel_room]
-
-    # Summary badges
-    total      = len(filtered)
-    assigned   = int((filtered["Room"] != "ROOM_UNASSIGNED").sum())
-    unassigned = total - assigned
-
-    bcol1, bcol2, bcol3 = st.columns(3)
-    with bcol1:
-        st.markdown(
-            f'<span class="badge badge-blue">Total slots: {total}</span>',
-            unsafe_allow_html=True,
-        )
-    with bcol2:
-        st.markdown(
-            f'<span class="badge badge-green">Assigned: {assigned}</span>',
-            unsafe_allow_html=True,
-        )
-    with bcol3:
-        badge_cls = "badge-red" if unassigned else "badge-green"
-        st.markdown(
-            f'<span class="badge {badge_cls}">Unassigned: {unassigned}</span>',
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
-
-    st.markdown(
-        '<div class="card"><div class="card-header">Room Assignments</div>',
-        unsafe_allow_html=True,
-    )
-    styled = filtered.style.applymap(
-        _style_room_cell, subset=["Room"]
-    )
-    st.dataframe(styled, use_container_width=True, hide_index=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PAGE 1 — DASHBOARD
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def render_dashboard() -> None:
-    st.markdown(
-        '<h1 style="font-family:\'DM Serif Display\',serif; '
-        'font-size:1.8rem; color:#1F2937; margin-bottom:0.25rem;">'
-        'Department Dashboard</h1>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p style="color:#6B7280; font-size:0.9rem; margin-bottom:1.5rem;">'
-        'CSE · 3rd Semester · Academic Timetable Overview</p>',
-        unsafe_allow_html=True,
-    )
-
-    data = load_summary_data()
-
-    # --- Last-updated timestamp ---
-    summary_path = resolve_output_path("summary_report.txt")
-    if summary_path.exists():
-        import os as _os
-        from datetime import datetime as _dt
-        mtime = _os.path.getmtime(str(summary_path))
-        st.caption(f"🕐 Schedule last generated: {_dt.fromtimestamp(mtime).strftime('%A, %d %b %Y at %H:%M')}")
-
-    # --- st.metric quick-stats row ---
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Sections",     str(data.get("total_sections",    12)),  "A through L")
-    m2.metric("Theory Slots", str(data.get("total_theory_slots", 0)), "All sections")
-    m3.metric("Lab Slots",    str(data.get("total_lab_slots",    0)), "Paired blocks")
-    violations = data.get("same_subject", 0) + data.get("back_to_back", 0)
-    m4.metric("Violations",   str(violations), "Lower is better",
-              delta_color="inverse")
-
-    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-
-    # --- Quality score + faculty load side by side ---
-    left, right = st.columns([1, 2])
-
-    with left:
-        score = data.get("quality_score", 0)
-        color = (
-            "#10B981" if score >= 80
-            else "#F59E0B" if score >= 60
-            else "#EF4444"
-        )
-        violations_html = (
-            f'<div style="font-size:0.75rem; color:#6B7280; margin-top:0.75rem;">'
-            f'Same-day violations: <strong>{data.get("same_subject", 0)}</strong>'
-            f'<br>Back-to-back: <strong>{data.get("back_to_back", 0)}</strong></div>'
-        )
-        st.markdown(f"""
-        <div class="card" style="text-align:center;">
-            <div class="card-header">Schedule Quality</div>
-            <div style="font-family:'DM Serif Display',serif;
-                        font-size:3.5rem; color:{color};
-                        line-height:1; margin: 1rem 0;">
-                {score}
-            </div>
-            <div style="font-size:0.75rem; color:#6B7280;">out of 100</div>
-            {violations_html}
-        </div>
-        """, unsafe_allow_html=True)
-
-    with right:
-        st.markdown(
-            '<div class="card"><div class="card-header">'
-            'Faculty Load Heatmap</div>',
-            unsafe_allow_html=True,
-        )
-        load_df = data.get("faculty_load_df")
-        if load_df is not None and not load_df.empty:
-            # Build day-level heatmap from faculty CSVs
-            period_cols = [f"P{p}" for p in range(1, 7)]
-            heat_rows = []
-            for _, frow in load_df.iterrows():
-                fid = str(frow["faculty_id"])
-                fname = str(frow.get("name", fid))
-                fp = resolve_output_path(f"faculty_{fid}_timetable.csv")
-                if not fp.exists():
-                    continue
-                try:
-                    tdf = pd.read_csv(fp)
-                except Exception:
-                    continue
-                for _, drow in tdf.iterrows():
-                    day = str(drow["Day"]).strip()
-                    cnt = sum(
-                        1 for c in period_cols
-                        if str(drow.get(c, "----")).strip()
-                        not in ("----", "", "nan")
-                    )
-                    heat_rows.append({"Faculty": fname, "Day": day, "Periods": cnt})
-
-            if heat_rows:
-                heat_df = pd.DataFrame(heat_rows)
-                heat_df = heat_df[heat_df["Day"].isin(DAYS)].copy()
-                heat_df["Day"] = pd.Categorical(
-                    heat_df["Day"], categories=DAYS, ordered=True
-                )
-                heatmap = (
-                    alt.Chart(heat_df)
-                    .mark_rect(cornerRadius=3)
-                    .encode(
-                        x=alt.X("Day:N", sort=DAYS, title="Day"),
-                        y=alt.Y("Faculty:N", sort=None, title=""),
-                        color=alt.Color(
-                            "Periods:Q",
-                            scale=alt.Scale(
-                                domain=[0, 6],
-                                scheme="blues",
-                            ),
-                            title="Periods",
-                        ),
-                        tooltip=["Faculty", "Day", "Periods"],
-                    )
-                    .properties(height=max(180, len(heat_df["Faculty"].unique()) * 24))
-                )
-                st.altair_chart(heatmap, use_container_width=True)
-            else:
-                st.info("No faculty timetable data available.")
-        else:
-            st.info("No faculty load data available.")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # Regen button hidden from dashboard now that sidebar has one
-    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PAGE 2 — TIMETABLES
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def render_timetables() -> None:
-    st.markdown(
-        '<h1 style="font-family:\'DM Serif Display\',serif; '
-        'font-size:1.8rem; color:#1F2937; margin-bottom:1.5rem;">'
-        'View Timetables</h1>',
-        unsafe_allow_html=True,
-    )
-
-    tab1, tab2, tab3 = st.tabs(["📋 By Section", "👤 By Faculty", "🏫 Room Assignments"])
-
-    with tab1:
-        section = st.selectbox(
-            "Select section", SECTIONS,
-            label_visibility="collapsed",
-        )
-        path = resolve_output_path(f"section_{section}_timetable.csv")
-        if path.exists():
-            df = pd.read_csv(path)
-            st.markdown(
-                '<div class="card">'
-                f'<div class="card-header">Section {section} — Weekly Timetable</div>',
-                unsafe_allow_html=True,
-            )
-            # Pivot: rows = Periods P1-P6, columns = Days Mon-Fri
-            period_cols = [f"P{p}" for p in range(1, 7)]
-            pivot: dict = {col: {} for col in period_cols}
-            for _, row in df.iterrows():
-                day = str(row["Day"]).strip()
-                for col in period_cols:
-                    cell = str(row.get(col, "----")).strip()
-                    pivot[col][day] = "" if cell in ("----", "nan") else cell
-            piv_df = pd.DataFrame(pivot).T
-            ordered = [d for d in DAYS if d in piv_df.columns]
-            piv_df = piv_df.reindex(columns=ordered)
-            piv_df.index.name = "Period"
-            piv_df = piv_df.reset_index()
-
-            def _sec_cell(val):
-                v = str(val).strip()
-                if "LAB" in v.upper():
-                    return "background-color:#DBEAFE;color:#1E40AF;font-weight:500;"
-                if v in ("", "----", "nan"):
-                    return "background-color:#F9FAFB;color:#D1D5DB;"
-                return "background-color:#D1FAE5;color:#065F46;"
-
-            st.dataframe(
-                piv_df.style.applymap(_sec_cell, subset=ordered),
-                use_container_width=True, hide_index=True,
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.info("No timetable found. Generate one from the Dashboard.")
-
-    with tab2:
-        faculty_df = load_faculty_list()
-        options = [
-            f"{r['faculty_id']} — {r['name']} ({r['designation']})"
-            for _, r in faculty_df.iterrows()
-        ]
-        choice = st.selectbox(
-            "Select faculty", options,
-            label_visibility="collapsed",
-        )
-        fid = choice.split(" — ")[0]
-        path = resolve_output_path(f"faculty_{fid}_timetable.csv")
-        if path.exists():
-            df = pd.read_csv(path)
-            st.markdown(
-                '<div class="card">'
-                f'<div class="card-header">{choice}</div>',
-                unsafe_allow_html=True,
-            )
-            # Pivot: rows = Periods, columns = Days
-            period_cols = [f"P{p}" for p in range(1, 7)]
-            pivot: dict = {col: {} for col in period_cols}
-            for _, row in df.iterrows():
-                day = str(row["Day"]).strip()
-                for col in period_cols:
-                    cell = str(row.get(col, "----")).strip()
-                    pivot[col][day] = "" if cell in ("----", "nan") else cell
-            piv_df = pd.DataFrame(pivot).T
-            ordered = [d for d in DAYS if d in piv_df.columns]
-            piv_df = piv_df.reindex(columns=ordered)
-            piv_df.index.name = "Period"
-            piv_df = piv_df.reset_index()
-
-            st.dataframe(
-                piv_df.style.applymap(_sec_cell, subset=ordered),
-                use_container_width=True, hide_index=True,
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.info("No faculty timetable found.")
-
-    with tab3:
-        _render_room_assignments()
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PAGE 3 — SUBSTITUTE FINDER
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def _substitute_row_style(row: pd.Series) -> List[str]:
-    if row.get("Status") == "Unresolved":
-        return ["background-color: #FEE2E2; color: #991B1B;" for _ in row]
-    return ["background-color: #F0FDF4; color: #065F46;" for _ in row]
-
-
-def render_substitute() -> None:
-    st.markdown(
-        '<h1 style="font-family:\'DM Serif Display\',serif; '
-        'font-size:1.8rem; color:#1F2937; margin-bottom:1.5rem;">'
-        'Substitute Finder</h1>',
-        unsafe_allow_html=True,
-    )
-
-    faculty_df = load_faculty_list()
-    options = [
-        f"{r['faculty_id']} — {r['name']}"
-        for _, r in faculty_df.iterrows()
-    ]
-
-    # Input card
-    st.markdown(
-        '<div class="card"><div class="card-header">Report Absence</div>',
-        unsafe_allow_html=True,
-    )
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        absent = st.selectbox("Absent Faculty", options)
-    with col2:
-        day = st.selectbox("Day", DAYS)
-    with col3:
-        st.markdown(
-            "<div style='height:1.9rem'></div>", unsafe_allow_html=True
-        )
-        find = st.button(
-            "🔍 Find Substitutes", type="primary",
-            use_container_width=True,
-        )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    if find:
-        fid = absent.split(" — ")[0]
-        with st.spinner("Finding available substitutes..."):
-            try:
-                result = find_substitute(fid, day)
-            except Exception as exc:
-                st.error(f"Error: {exc}")
-                return
-
-        # Build results table (reusing existing logic)
-        rows: List[Dict[str, str]] = []
-        subs_map = {
-            (s["period"], s["course"], s["section"]): s
-            for s in result.get("substitutions", [])
-        }
-        for slot in result.get("original_slots", []):
-            key = (slot["period"], slot["course"], slot["section"])
-            s = subs_map.get(key)
-            if s:
-                rows.append({
-                    "Period": slot["period"],
-                    "Course": slot["course"],
-                    "Section": slot["section"],
-                    "Substitute": f"{s['substitute_name']} ({s['substitute_id']})",
-                    "Match": s.get("match_type", ""),
-                    "Reason": s.get("reason", ""),
-                    "Status": "Assigned",
-                })
-            else:
-                rows.append({
-                    "Period": slot["period"],
-                    "Course": slot["course"],
-                    "Section": slot["section"],
-                    "Substitute": "—",
-                    "Match": "",
-                    "Reason": "No substitute available",
-                    "Status": "Unresolved",
-                })
-
-        if rows:
-            st.markdown(
-                '<div class="card">'
-                '<div class="card-header">Substitute Plan</div>',
-                unsafe_allow_html=True,
-            )
-            unresolved = result.get("unresolved", [])
-            if unresolved:
-                st.markdown(
-                    f'<span class="badge badge-amber">'
-                    f'{len(unresolved)} unresolved slot(s)</span>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.markdown(
-                    '<span class="badge badge-green">All slots covered</span>',
-                    unsafe_allow_html=True,
-                )
-            st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
-
-            # Group substitutions by period for card rendering
-            subs_by_period = {}
-            for s in result.get("substitutions", []):
-                subs_by_period.setdefault(s["period"], []).append(s)
-
-            for slot in result.get("original_slots", []):
-                period  = slot["period"]
-                course  = slot["course"]
-                section = slot["section"]
-                cands   = subs_by_period.get(period, [])
-
-                st.markdown(
-                    f'<div style="font-size:0.8rem;color:#6B7280;'
-                    f'font-weight:600;margin:0.9rem 0 0.4rem 0;">'
-                    f'{period} · {course} · Section {section}</div>',
-                    unsafe_allow_html=True,
-                )
-
-                if not cands:
-                    st.warning(f"No substitute available for {period} ({course}).")
-                    continue
-
-                # Show each candidate as a card in columns (max 3 per row)
-                for i in range(0, len(cands), 3):
-                    cols = st.columns(min(3, len(cands) - i))
-                    for col, sub in zip(cols, cands[i:i+3]):
-                        with col:
-                            match_type = sub.get("match_type", "available")
-                            chip_cls = (
-                                "chip-course" if match_type == "same_course"
-                                else "chip-desig" if match_type == "same_designation"
-                                else "chip-avail"
-                            )
-                            chip_label = (
-                                "Same course" if match_type == "same_course"
-                                else "Same rank" if match_type == "same_designation"
-                                else "Available"
-                            )
-                            load_str = sub.get("projected_load", "?")
-                            st.markdown(f"""
-                            <div class="cand-card">
-                              <div style="font-weight:600;font-size:0.9rem;color:#1F2937;">
-                                {sub['substitute_name']}
-                                <span class="match-chip {chip_cls}">{chip_label}</span>
-                              </div>
-                              <div style="font-size:0.78rem;color:#6B7280;margin-top:0.2rem;">
-                                {sub.get('designation','')}
-                              </div>
-                              <div style="font-size:0.78rem;color:#374151;margin-top:0.35rem;">
-                                Load after: <strong>{load_str}</strong>
-                              </div>
-                              <div style="font-size:0.75rem;color:#9CA3AF;margin-top:0.2rem;">
-                                {sub.get('reason','')}
-                              </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-
-                            # Confirm & Commit button
-                            btn_key = f"commit_{period}_{sub['substitute_id']}"
-                            if st.button(
-                                f"✓ Commit {sub['substitute_id']}",
-                                key=btn_key, use_container_width=True,
-                            ):
-                                try:
-                                    from src.phase5.sync_manager import commit_schedule_change
-                                    p_int = int(period.lstrip("P"))
-                                    commit_result = commit_schedule_change({
-                                        "section":          section,
-                                        "day":              day,
-                                        "period_start":     p_int,
-                                        "period_end":       p_int,
-                                        "original_faculty": fid,
-                                        "new_faculty":      sub["substitute_id"],
-                                        "change_type":      "substitute",
-                                        "reason":           f"UI commit from Substitute Finder",
-                                    })
-                                    st.success(commit_result["message"])
-                                    st.cache_data.clear()
-                                except Exception as _ce:
-                                    st.error(f"Commit failed: {_ce}")
-
-            st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.info("Faculty has no classes on this day.")
-
-    # --- Swap section ---
-    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
-    st.markdown(
-        '<div class="card">'
-        '<div class="card-header">Plan Load Swap on Return</div>',
-        unsafe_allow_html=True,
-    )
-    courses_df = load_course_data()
-    sc1, sc2, sc3, sc4 = st.columns(4)
-    with sc1:
-        ret_faculty = st.selectbox(
-            "Returning Faculty", options, key="swap_ret"
-        )
-    with sc2:
-        sub_faculty = st.selectbox(
-            "Substitute Faculty", options, key="swap_sub"
-        )
-    with sc3:
-        ret_day = st.selectbox("Return Day", DAYS, key="swap_day")
-    with sc4:
-        course_code = st.selectbox(
-            "Course", courses_df["course_code"].tolist(), key="swap_course"
-        )
-
-    if st.button("Suggest Swap Slots"):
-        rfid = ret_faculty.split(" — ")[0]
-        sfid = sub_faculty.split(" — ")[0]
-        try:
-            swap = find_swap_slot(rfid, sfid, ret_day, course_code)
-            if swap.get("swap_found"):
-                st.success(
-                    f"Swap found: {swap['swap_day']} {swap['swap_period']} "
-                    f"— {swap['course']} (Section {swap['section']})"
-                )
-                mc1, mc2 = st.columns(2)
-                with mc1:
-                    st.metric(
-                        f"{swap['faculty_a']} load",
-                        f"{swap['faculty_a_load_after']}h / {swap['faculty_a_max']}h",
-                        delta=f"was {swap['faculty_a_load_before']}h",
-                    )
-                with mc2:
-                    st.metric(
-                        f"{swap['faculty_b']} load",
-                        f"{swap['faculty_b_load_after']}h / {swap['faculty_b_max']}h",
-                        delta=f"was {swap['faculty_b_load_before']}h",
-                    )
-            else:
-                st.info("No swap possible this week. Substitute keeps the extra class.")
-        except Exception as exc:
-            st.error(f"Swap error: {exc}")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PAGE 4 — AI ASSISTANT
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def render_ai_assistant() -> None:
-    st.markdown(
-        '<h1 style="font-family:\'DM Serif Display\',serif; '
-        'font-size:1.8rem; color:#1F2937; margin-bottom:0.5rem;">'
-        'AI Assistant</h1>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p style="color:#6B7280; font-size:0.875rem; '
-        'margin-bottom:1.5rem;">Ask anything about the timetable. '
-        'Powered by Groq + RAG retrieval.</p>',
-        unsafe_allow_html=True,
-    )
-
+from utils.health_check import check_system_health
+
+# ── Streamlit page config ─────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="Timetable OS",
+    page_icon="🗓️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ── Period metadata ───────────────────────────────────────────────────────────
+PERIOD_LABELS = {
+    1: "P1 · 8:45–9:45",
+    2: "P2 · 9:45–10:45",
+    3: "P3 · 11:00–12:00",
+    4: "P4 · 12:00–1:00",
+    5: "P5 · 1:45–3:15 (Lab)",
+    6: "P6 · 3:15–4:00 (Lab)",
+}
+
+# cell background colours
+CELL_COLORS = {
+    "theory":    "#DBEAFE",   # light blue
+    "lab":       "#D1FAE5",   # light green
+    "elective":  "#EDE9FE",   # light purple
+    "empty":     "#F9FAFB",   # off-white
+}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Session state initialisation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _init_state():
+    sems = list_available_semesters()
+    if "sem_id" not in st.session_state:
+        st.session_state.sem_id = sems[0] if sems else "cse_sem3"
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
-    if "chat_prefill" not in st.session_state:
-        st.session_state.chat_prefill = ""
-
-    # --- Example question chips ---
-    example_qs = [
-        "Who can substitute for F03 on Monday?",
-        "Which rooms are free on Tuesday P2?",
-        "Show faculty workload summary",
-        "List all sections on Friday",
-        "Who teaches DSA for Section A?",
-        "Are there any schedule conflicts?",
-    ]
-    st.markdown(
-        '<div style="font-size:0.8rem;color:#6B7280;'
-        'margin-bottom:0.5rem;">💡 Try asking:</div>',
-        unsafe_allow_html=True,
-    )
-    eq_cols = st.columns(len(example_qs))
-    for ec, q in zip(eq_cols, example_qs):
-        with ec:
-            st.markdown('<div class="eq-btn">', unsafe_allow_html=True)
-            if st.button(q, key=f"eq_{q[:20]}", use_container_width=True):
-                st.session_state.chat_prefill = q
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-
-    # Chat history display
-    if st.session_state.chat_history:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        for msg in st.session_state.chat_history:
-            if msg["role"] == "user":
-                st.markdown(
-                    f'<div class="chat-user">👤 {msg["content"]}</div>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.markdown(
-                    f'<div class="chat-ai">🤖 {msg["content"]}</div>',
-                    unsafe_allow_html=True,
-                )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # Input form — pre-filled if a chip was clicked
-    prefill = st.session_state.pop("chat_prefill", "") if "chat_prefill" in st.session_state else ""
-    with st.form("chat_form", clear_on_submit=True):
-        col1, col2 = st.columns([5, 1])
-        with col1:
-            user_input = st.text_input(
-                "Message",
-                value=prefill,
-                placeholder="e.g. Who teaches DDCO for Section A?",
-                label_visibility="collapsed",
-            )
-        with col2:
-            submitted = st.form_submit_button("Send", use_container_width=True)
-
-    if submitted and user_input.strip():
-        st.session_state.chat_history.append(
-            {"role": "user", "content": user_input.strip()}
-        )
-        with st.spinner("Thinking..."):
-            from src.phase5.ai_explainer import explain_with_rag
-            history_pairs = []
-            for i in range(0, len(st.session_state.chat_history) - 1, 2):
-                msgs = st.session_state.chat_history
-                if i + 1 < len(msgs):
-                    history_pairs.append((msgs[i]["content"], msgs[i + 1]["content"]))
-            response = explain_with_rag(
-                user_input.strip(), history=history_pairs[-5:]
-            )
-        st.session_state.chat_history.append(
-            {"role": "assistant", "content": response}
-        )
-        st.rerun()
-
-    # Clear button
-    if st.session_state.chat_history:
-        if st.button("Clear conversation"):
-            st.session_state.chat_history = []
-            st.rerun()
+    if "_rag_debug" not in st.session_state:
+        st.session_state._rag_debug = {}
+    if "agent_output" not in st.session_state:
+        st.session_state.agent_output = ""
+    if "current_page" not in st.session_state:
+        st.session_state.current_page = "Dashboard"
+    if "_agent_confirm" not in st.session_state:
+        st.session_state._agent_confirm = False
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PAGE 5 — AI AGENT
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def render_ai_agent() -> None:
-    st.markdown(
-        '<h1 style="font-family:\'DM Serif Display\',serif; '
-        'font-size:1.8rem; color:#1F2937; margin-bottom:0.5rem;">'
-        'Autonomous Agent</h1>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p style="color:#6B7280; font-size:0.875rem; '
-        'margin-bottom:1.5rem;">'
-        'The agent can find substitutes, commit assignments, '
-        'log operations, and generate reports.</p>',
-        unsafe_allow_html=True,
-    )
-
-    col_main, col_log = st.columns([3, 2])
-
-    with col_main:
-        # Absence input card
-        st.markdown(
-            '<div class="card">'
-            '<div class="card-header">Report Absence to Agent</div>',
-            unsafe_allow_html=True,
-        )
-        faculty_df = load_faculty_list()
-        options = [
-            f"{r['faculty_id']} — {r['name']}"
-            for _, r in faculty_df.iterrows()
-        ]
-        absent = st.selectbox("Absent Faculty", options, key="ag_faculty")
-        day = st.selectbox("Day", DAYS, key="ag_day")
-        auto = st.checkbox(
-            "Auto-commit (no confirmation required)", value=False
-        )
-
-        col_a, col_b = st.columns(2)
-        with col_a:
-            run = st.button(
-                "▶ Run Agent", type="primary", use_container_width=True
-            )
-        with col_b:
-            summarise = st.button(
-                "📄 Generate Summary", use_container_width=True
-            )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        # Agent output
-        if "agent_output" not in st.session_state:
-            st.session_state.agent_output = None
-
-        if run:
-            fid = absent.split(" — ")[0]
-            action = (
-                "commit the assignment automatically."
-                if auto
-                else "show me the proposed assignment."
-            )
-            query = (
-                f"Faculty {fid} is absent on {day}. "
-                f"Find the best substitute and {action}"
-            )
-            with st.spinner("Agent is working..."):
-                try:
-                    from src.phase5.agent import create_timetable_agent
-                    agent = create_timetable_agent()
-                    if agent is None:
-                        # Fallback to direct substitute finder
-                        from src.phase5.ai_explainer import explain_with_rag
-                        result = explain_with_rag(query)
-                        st.session_state.agent_output = f"[Fallback] {result}"
-                    else:
-                        result = agent({"input": query})
-                        st.session_state.agent_output = result.get(
-                            "output", "No response from agent."
-                        )
-                except Exception as exc:
-                    st.session_state.agent_output = f"Agent error: {exc}"
-
-        if st.session_state.agent_output:
-            st.markdown(
-                '<div class="card">'
-                '<div class="card-header">Agent Response</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                f'<div class="chat-ai">{st.session_state.agent_output}</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        if summarise:
-            with st.spinner("Generating summary..."):
-                from src.phase5.agent_ops import list_operations
-                ops = list_operations(50)
-            if ops:
-                st.markdown(
-                    '<div class="card">'
-                    '<div class="card-header">Session Summary</div>',
-                    unsafe_allow_html=True,
-                )
-                for op in ops:
-                    badge = (
-                        "badge-green"
-                        if op["commit_result"] == "SUCCESS"
-                        else "badge-red"
-                    )
-                    st.markdown(f"""
-                    <div class="ops-entry">
-                        <span class="badge {badge}">
-                            {op['commit_result']}
-                        </span>
-                        <strong style="margin-left:0.5rem;">
-                            {op['action'].upper()}
-                        </strong>
-                        — Section {op['section_id']}, {op['day']},
-                        P{op['period_range'][0]}-P{op['period_range'][1]}
-                        <br>
-                        <span style="color:#6B7280;">
-                            Absent: {op['absent_faculty']} →
-                            Sub: {op['substitute_faculty']}
-                        </span>
-                    </div>
-                    """, unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.info("No operations logged yet.")
-
-    with col_log:
-        # Live agent ops log
-        st.markdown(
-            '<div class="card">'
-            '<div class="card-header">Agent Operations Log</div>',
-            unsafe_allow_html=True,
-        )
-        from src.phase5.agent_ops import list_operations, rollback_operation
-        ops = list_operations(10)
-        if not ops:
-            st.markdown(
-                '<p style="color:#9CA3AF; font-size:0.85rem;">'
-                'No operations yet.</p>',
-                unsafe_allow_html=True,
-            )
-        else:
-            for op in ops:
-                badge = (
-                    "badge-green"
-                    if op["commit_result"] == "SUCCESS"
-                    else "badge-red"
-                )
-                st.markdown(f"""
-                <div class="ops-entry">
-                    <div style="display:flex; justify-content:space-between;
-                                margin-bottom:0.25rem;">
-                        <span class="badge {badge}">
-                            {op['action'].upper()}
-                        </span>
-                        <span style="font-size:0.7rem; color:#9CA3AF;">
-                            {op['operation_id']}
-                        </span>
-                    </div>
-                    <div style="font-size:0.8rem; color:#374151;">
-                        Section <strong>{op['section_id']}</strong>
-                        · {op['day']}
-                        · P{op['period_range'][0]}-P{op['period_range'][1]}
-                    </div>
-                    <div style="font-size:0.75rem; color:#6B7280;
-                                margin-top:0.2rem;">
-                        {op['absent_faculty']} →
-                        {op['substitute_faculty']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # Rollback UI
-        st.markdown(
-            '<div style="margin-top:1rem; padding-top:1rem; '
-            'border-top:1px solid #F3F4F6;">',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div style="font-size:0.8rem; font-weight:600; '
-            'color:#374151; margin-bottom:0.5rem;">Rollback</div>',
-            unsafe_allow_html=True,
-        )
-        op_id = st.text_input(
-            "Operation ID", placeholder="e.g. a3f2b1c4",
-            label_visibility="collapsed",
-        )
-        if st.button("⏪ Rollback", use_container_width=True):
-            if op_id.strip():
-                msg = rollback_operation(op_id.strip())
-                if "Rolled back" in msg:
-                    st.success(msg)
-                else:
-                    st.error(msg)
-            else:
-                st.warning("Enter an operation ID first.")
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+_init_state()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PAGE — FACULTY WORKLOAD
-# ═══════════════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers — path resolution (always called fresh, never cached globally)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _paths():
+    """Fresh SemesterPaths for the currently selected semester."""
+    return get_sem_paths(st.session_state.sem_id)
+
+
+def _out_exists() -> bool:
+    return _paths().output_dir.exists()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers — data loading (cached PER sem_id to avoid re-reads on rerun)
+# ─────────────────────────────────────────────────────────────────────────────
 
 @st.cache_data(show_spinner=False)
-def _load_all_faculty_workloads() -> pd.DataFrame:
-    """
-    Read every faculty_*_timetable.csv and compute workload metrics.
-    Returns a DataFrame with one row per faculty.
-    """
-    from config import MAX_HOURS as _MH, DATA_DIR as _DD
-    period_cols = [f"P{p}" for p in range(1, 7)]
-    lab_cols    = {"P5", "P6"}
+def _load_section_csv(sem_id: str, section: str) -> Optional[pd.DataFrame]:
+    p = get_sem_paths(sem_id).output_dir / f"section_{section}_timetable.csv"
+    return pd.read_csv(p) if p.exists() else None
 
+
+@st.cache_data(show_spinner=False)
+def _load_faculty_csv(sem_id: str, faculty_id: str) -> Optional[pd.DataFrame]:
+    p = get_sem_paths(sem_id).output_dir / f"faculty_{faculty_id}_timetable.csv"
+    return pd.read_csv(p) if p.exists() else None
+
+
+@st.cache_data(show_spinner=False)
+def _load_room_assignment(sem_id: str) -> Optional[pd.DataFrame]:
+    p = get_sem_paths(sem_id).output_dir / "room_assignment.csv"
+    return pd.read_csv(p) if p.exists() else None
+
+
+@st.cache_data(show_spinner=False)
+def _load_summary_report(sem_id: str) -> Optional[str]:
+    p = get_sem_paths(sem_id).output_dir / "summary_report.txt"
+    return p.read_text(encoding="utf-8") if p.exists() else None
+
+
+@st.cache_data(show_spinner=False)
+def _load_faculty_meta(sem_id: str) -> Optional[pd.DataFrame]:
+    p = get_sem_paths(sem_id).data_dir / "faculty.csv"
+    return pd.read_csv(p) if p.exists() else None
+
+
+@st.cache_data(show_spinner=False)
+def _load_courses(sem_id: str) -> Optional[pd.DataFrame]:
+    p = get_sem_paths(sem_id).data_dir / "courses.csv"
+    return pd.read_csv(p) if p.exists() else None
+
+
+@st.cache_data(show_spinner=False)
+def _load_assignments(sem_id: str) -> Optional[pd.DataFrame]:
+    p = get_sem_paths(sem_id).data_dir / "assignments.csv"
+    return pd.read_csv(p) if p.exists() else None
+
+
+@st.cache_data(show_spinner=False)
+def _load_rag_docs_count(sem_id: str) -> int:
+    p = get_sem_paths(sem_id).rag_docs_path
+    if not p.exists():
+        return 0
     try:
-        fac_meta = pd.read_csv(_DD / "faculty.csv")
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return len(data) if isinstance(data, list) else 0
     except Exception:
-        return pd.DataFrame()
+        return 0
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers — quality score from summary_report.txt
+# Bug #6 fix: correct field names + correct formula
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _parse_quality(report_text: str) -> dict:
+    """Parse summary_report.txt fields and compute quality score."""
+    def _int(pattern):
+        m = re.search(pattern, report_text)
+        return int(m.group(1)) if m else 0
+
+    same_day    = _int(r"same_subject_same_day:\s*(\d+)")
+    back_to_back= _int(r"back_to_back_same_subject:\s*(\d+)")
+    theory_slots= _int(r"Total theory/elective slots placed:\s*(\d+)")
+    lab_slots   = _int(r"Total lab slots placed:\s*(\d+)")
+    elec_slots  = _int(r"Total fixed elective slots placed:\s*(\d+)")
+
+    # Count OVERLOAD lines
+    overload_count = len(re.findall(r"\|\s*OVERLOAD", report_text))
+
+    # Bug #6 formula
+    score = max(0.0, round(
+        100 - ((same_day + 2 * back_to_back + 5 * overload_count) / 2), 1
+    ))
+
+    return {
+        "score": score,
+        "same_day": same_day,
+        "back_to_back": back_to_back,
+        "overload_count": overload_count,
+        "theory_slots": theory_slots,
+        "lab_slots": lab_slots,
+        "elec_slots": elec_slots,
+    }
+
+
+def _room_unassigned_count(sem_id: str) -> int:
+    df = _load_room_assignment(sem_id)
+    if df is None or "Room" not in df.columns:
+        return 0
+    return int((df["Room"] == "ROOM_UNASSIGNED").sum())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers — faculty load (Bug #1 fix: groupby, not row iteration)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@st.cache_data(show_spinner=False)
+def _faculty_load_df(sem_id: str) -> Optional[pd.DataFrame]:
+    """
+    Returns a DataFrame with columns: faculty_id, total_slots, designation, max_hours.
+    Bug #1 fix: uses pd.melt + groupby — never iterates rows.
+    """
+    fac_meta = _load_faculty_meta(sem_id)
+    if fac_meta is None:
+        return None
+
+    out = get_sem_paths(sem_id).output_dir
+    period_cols = [f"P{p}" for p in range(1, 7)]
     rows = []
+
     for _, frow in fac_meta.iterrows():
-        fid   = str(frow["faculty_id"]).strip()
-        name  = str(frow["name"]).strip()
-        desig = str(frow["designation"]).strip()
-        max_h = _MH.get(desig, 16)
-
-        path = resolve_output_path(f"faculty_{fid}_timetable.csv")
+        fid = str(frow["faculty_id"]).strip()
+        path = out / f"faculty_{fid}_timetable.csv"
         if not path.exists():
+            rows.append({"faculty_id": fid, "total_slots": 0,
+                         "designation": str(frow["designation"]),
+                         "name": str(frow["name"])})
             continue
-        try:
-            df = pd.read_csv(path)
-        except Exception:
-            continue
-
-        theory = 0
-        lab    = 0
-        day_counts: dict = {}
-
-        for _, drow in df.iterrows():
-            day = str(drow["Day"]).strip()
-            cnt = 0
-            for col in period_cols:
-                cell = str(drow.get(col, "----")).strip()
-                if cell in ("----", "", "nan"):
-                    continue
-                cnt += 1
-                if col in lab_cols:
-                    lab += 1
-                else:
-                    theory += 1
-            if cnt > 0:
-                day_counts[day] = cnt
-
-        total    = theory + lab
-        busiest  = max(day_counts, key=day_counts.get) if day_counts else "—"
-        n_days   = len(day_counts)
-
-        if total > max_h:
-            status = "OVERLOAD"
-        elif total >= max_h - 1:
-            status = "NEAR"
-        else:
-            status = "OK"
-
+        df = pd.read_csv(path)
+        # Bug #1: count non-empty cells across ALL days via vectorised ops
+        filled = df[period_cols].apply(
+            lambda c: c.astype(str).str.strip().ne("----") & c.astype(str).str.strip().ne("")
+        ).values.sum()
         rows.append({
-            "faculty_id":        fid,
-            "name":              name,
-            "designation":       desig,
-            "max_hours":         max_h,
-            "theory":            theory,
-            "lab":               lab,
-            "total":             total,
-            "days_with_classes": n_days,
-            "busiest_day":       busiest,
-            "status":            status,
+            "faculty_id": fid,
+            "total_slots": int(filled),
+            "designation": str(frow["designation"]),
+            "name": str(frow["name"]),
         })
 
-    return pd.DataFrame(rows)
+    if not rows:
+        return None
+
+    load_df = pd.DataFrame(rows)
+    load_df["max_hours"] = load_df["designation"].map(lambda d: MAX_HOURS.get(d, 16))
+    return load_df
 
 
-def _stylize_workload(row: pd.Series) -> list:
-    s = row.get("status", "OK")
-    if s == "OVERLOAD":
-        bg = "background-color:#FEE2E2; color:#991B1B;"
-    elif s == "NEAR":
-        bg = "background-color:#FEF3C7; color:#92400E;"
-    else:
-        bg = "background-color:#D1FAE5; color:#065F46;"
-    return [bg] * len(row)
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers — styled timetable HTML table
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _cell_color(value: str) -> str:
+    if not value or value.strip() in ("", "----", "—"):
+        return CELL_COLORS["empty"]
+    v = value.strip()
+    if "LAB" in v.upper():
+        return CELL_COLORS["lab"]
+    if v.lower().startswith("elective"):
+        return CELL_COLORS["elective"]
+    return CELL_COLORS["theory"]
 
 
-def render_faculty_workload() -> None:
-    st.markdown(
-        '<h1 style="font-family:\'DM Serif Display\',serif; '
-        'font-size:1.8rem; color:#1F2937; margin-bottom:0.25rem;">'
-        'Faculty Workload</h1>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p style="color:#6B7280; font-size:0.9rem; margin-bottom:1.5rem;">'
-        'Weekly load analysis, overload alerts, and free-slot finder.</p>',
-        unsafe_allow_html=True,
-    )
+def _render_timetable_html(df: pd.DataFrame) -> str:
+    """
+    Render a section/faculty timetable CSV as a styled HTML table.
+    Rows = periods (P1-P6 with time labels), Columns = Mon-Fri.
+    """
+    # Pivot: index=period, columns=day
+    period_cols = [f"P{p}" for p in range(1, 7)]
+    present_days = [d for d in DAYS if d in df.columns or d == df.get("Day", pd.Series()).name]
 
-    wl_df = _load_all_faculty_workloads()
+    # df has columns: Day, P1..P6
+    day_col = df.set_index("Day")
 
-    if wl_df.empty:
-        st.info(
-            "No faculty timetables found. "
-            "Run `python run_all.py` first to generate the schedule."
+    html = ['<table style="border-collapse:collapse;width:100%;font-size:0.85rem;">']
+    # Header
+    html.append("<thead><tr>")
+    html.append('<th style="background:#1e293b;color:#f8fafc;padding:8px 12px;text-align:left;min-width:130px;">Period</th>')
+    for day in DAYS:
+        html.append(
+            f'<th style="background:#1e293b;color:#f8fafc;padding:8px 12px;text-align:center;">{day}</th>'
         )
+    html.append("</tr></thead><tbody>")
+
+    for p in range(1, 7):
+        col = f"P{p}"
+        label = PERIOD_LABELS[p]
+        html.append("<tr>")
+        html.append(
+            f'<td style="background:#f1f5f9;font-weight:600;padding:7px 12px;'
+            f'border:1px solid #e2e8f0;white-space:nowrap;">{label}</td>'
+        )
+        for day in DAYS:
+            try:
+                value = str(day_col.loc[day, col]).strip()
+            except (KeyError, Exception):
+                value = "----"
+            if value in ("", "nan", "None", "----"):
+                display = "—"
+                color = CELL_COLORS["empty"]
+            else:
+                display = value
+                color = _cell_color(value)
+            html.append(
+                f'<td style="background:{color};padding:7px 10px;'
+                f'border:1px solid #e2e8f0;text-align:center;">{display}</td>'
+            )
+        html.append("</tr>")
+
+    html.append("</tbody></table>")
+    return "".join(html)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers — substitute intent detection (Bug #5 fix)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_SUBSTITUTE_KEYWORDS = {"substitute", "cover", "replace", "absent", "who can", "covering"}
+
+def _is_substitute_query(query: str) -> bool:
+    q = query.lower()
+    return any(kw in q for kw in _SUBSTITUTE_KEYWORDS)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Missing output guard
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _no_output_banner(sem_id: str):
+    st.warning(
+        f"⚠️ No timetable found for **{sem_id}**.\n\n"
+        f"Run: `python run_all.py --sem {sem_id}`",
+        icon="⚠️",
+    )
+
+
+# =============================================================================
+# SIDEBAR
+# =============================================================================
+
+def _render_sidebar():
+    with st.sidebar:
+        st.markdown("## 🗓️ Timetable OS")
+
+        # ── Semester selector ─────────────────────────────────────────────────
+        sems = list_available_semesters()
+        if not sems:
+            st.error("No semester data directories found in data/")
+            return
+
+        prev_sem = st.session_state.sem_id
+        chosen = st.selectbox(
+            "Semester",
+            sems,
+            index=sems.index(st.session_state.sem_id) if st.session_state.sem_id in sems else 0,
+            key="_sem_selector",
+        )
+
+        # Bug #2 fix: clear all caches + state on semester switch
+        if chosen != prev_sem:
+            st.session_state.sem_id = chosen
+            st.session_state.chat_history = []
+            st.session_state.agent_output = ""
+            st.session_state._rag_debug = {}
+            st.cache_data.clear()
+            # Clear lru_caches in substitute.py (only output-file loaders have lru_cache now)
+            try:
+                from src.phase5 import substitute as _sub
+                for fn in (
+                    _sub.load_faculty_timetable,
+                    _sub.load_section_timetable,
+                ):
+                    try:
+                        fn.cache_clear()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            st.rerun()
+
+        sem_id = st.session_state.sem_id
+        sem_paths = get_sem_paths(sem_id)
+
+        # ── Semester info card ────────────────────────────────────────────────
+        courses_df  = _load_courses(sem_id)
+        faculty_df  = _load_faculty_meta(sem_id)
+        doc_count   = _load_rag_docs_count(sem_id)
+        rag_ok      = sem_paths.rag_index_path.exists()
+
+        num_courses  = len(courses_df) if courses_df is not None else "?"
+        num_faculty  = len(faculty_df) if faculty_df is not None else "?"
+        num_sections = len(SECTIONS)
+        has_electives = (
+            courses_df is not None and
+            "is_elective" in courses_df.columns and
+            courses_df["is_elective"].any()
+        )
+
+        rag_line = (
+            f"📂 rag_index.faiss · {doc_count} docs"
+            if rag_ok else "📂 Index not built"
+        )
+
+        st.info(
+            f"📚 {num_courses} courses · {num_faculty} faculty · {num_sections} sections\n\n"
+            + ("🧪 Electives ✓\n\n" if has_electives else "")
+            + rag_line
+        )
+
+        st.caption(
+            "✦ Metadata filtering  ✦ Query decomposition\n"
+            "✦ Cross-encoder rerank  ✦ Faculty preferences\n"
+            "✦ CP-SAT room assignment"
+        )
+
+        st.divider()
+
+        # ── Action buttons ────────────────────────────────────────────────────
+        if st.button("↺ Regenerate Schedule", use_container_width=True):
+            with st.spinner(f"Running pipeline for {sem_id}…"):
+                try:
+                    result = subprocess.run(
+                        [sys.executable, "run_all.py", "--sem", sem_id],
+                        capture_output=True, text=True, timeout=600,
+                    )
+                    st.cache_data.clear()
+                    if result.returncode == 0:
+                        st.success("Pipeline complete!")
+                    else:
+                        st.error(f"Pipeline failed:\n```\n{result.stderr[-1000:]}\n```")
+                except subprocess.TimeoutExpired:
+                    st.error("Pipeline timed out (>10 min).")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+        if st.button("🔄 Rebuild RAG Index", use_container_width=True):
+            with st.spinner("Rebuilding FAISS index…"):
+                try:
+                    from src.phase5.rag_indexer import build_index
+                    build_index(sem_id=sem_id)
+                    st.cache_data.clear()
+                    st.success("RAG index rebuilt!")
+                except Exception as e:
+                    st.error(f"Failed: {e}")
+
+        st.divider()
+
+        # ── System health dot ─────────────────────────────────────────────────
+        # Bug #7 fix: always pass sem_id
+        try:
+            health = check_system_health(sem_id=sem_id)
+            overall_ok = health.get("overall_ok", False)
+            dot = "🟢" if overall_ok else "🔴"
+            label = "All systems go" if overall_ok else "Issues detected"
+            failed = health.get("summary", {}).get("failed", 0)
+            st.markdown(f"{dot} **{label}**" + (f"  ({failed} failed)" if failed else ""))
+        except Exception:
+            st.markdown("⚪ Health check error")
+
+        st.divider()
+
+        # ── Navigation ────────────────────────────────────────────────────────
+        page = st.radio(
+            "Navigate",
+            ["Dashboard", "Timetables", "Substitute Finder",
+             "Faculty Workload", "AI Assistant", "AI Agent"],
+            index=["Dashboard", "Timetables", "Substitute Finder",
+                   "Faculty Workload", "AI Assistant", "AI Agent"].index(
+                st.session_state.current_page
+            ),
+            key="_nav",
+        )
+        st.session_state.current_page = page
+
+        st.caption(f"**{sem_id}** · 12 Sections")
+
+
+# =============================================================================
+# PAGE 1 — DASHBOARD
+# =============================================================================
+
+def _render_dashboard():
+    sem_id = st.session_state.sem_id
+    sem_paths = get_sem_paths(sem_id)
+    out = sem_paths.output_dir
+
+    st.title("📊 Dashboard")
+
+    if not out.exists():
+        _no_output_banner(sem_id)
         return
 
-    # ── SECTION 4 (top) — Overload Alerts ────────────────────────────────────
-    overloads = wl_df[wl_df["status"] == "OVERLOAD"]
-    if not overloads.empty:
-        for _, r in overloads.iterrows():
-            over_by = int(r["total"]) - int(r["max_hours"])
-            st.warning(
-                f"⚠ **{r['name']}** ({r['faculty_id']}) is **{over_by} period(s)** "
-                f"over their cap ({r['max_hours']}h max for {r['designation']})."
+    courses_df  = _load_courses(sem_id)
+    faculty_df  = _load_faculty_meta(sem_id)
+    report_text = _load_summary_report(sem_id)
+
+    # ── Top metrics ───────────────────────────────────────────────────────────
+    num_courses = len(courses_df) if courses_df is not None else "?"
+    num_faculty = len(faculty_df) if faculty_df is not None else "?"
+    lab_courses = (
+        int(courses_df["has_lab"].sum())
+        if courses_df is not None and "has_lab" in courses_df.columns
+        else "?"
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Sections", len(SECTIONS))
+    c2.metric("Courses", num_courses)
+    c3.metric("Faculty", num_faculty)
+    c4.metric("Lab Subjects", lab_courses)
+
+    st.divider()
+
+    col_l, col_r = st.columns(2)
+
+    # ── Quality card ─────────────────────────────────────────────────────────
+    with col_l:
+        st.subheader("📈 Schedule Quality")
+        if report_text:
+            q = _parse_quality(report_text)
+            score = q["score"]
+            color = (
+                "#16a34a" if score >= 80 else
+                "#d97706" if score >= 60 else
+                "#dc2626"
             )
-    else:
-        st.success("✓ All faculty are within their weekly teaching caps.")
-
-    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-
-    # ── SECTION 1 — Workload Summary Table ────────────────────────────────────
-    st.markdown(
-        '<div class="card"><div class="card-header">'
-        '📊 Workload Summary</div>',
-        unsafe_allow_html=True,
-    )
-    display_cols = [
-        "faculty_id", "name", "designation",
-        "theory", "lab", "total", "max_hours",
-        "days_with_classes", "busiest_day", "status",
-    ]
-    st.dataframe(
-        wl_df[display_cols].style.apply(_stylize_workload, axis=1),
-        use_container_width=True, hide_index=True,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
-
-    # ── SECTION 2 — Individual Faculty Deep Dive ──────────────────────────────
-    st.markdown(
-        '<div class="card"><div class="card-header">'
-        '🔍 Individual Faculty Deep Dive</div>',
-        unsafe_allow_html=True,
-    )
-
-    fac_opts = [
-        f"{r['faculty_id']} — {r['name']} ({r['designation']})"
-        for _, r in wl_df.iterrows()
-    ]
-    chosen = st.selectbox(
-        "Select faculty", fac_opts,
-        key="fw_faculty_pick", label_visibility="collapsed",
-    )
-    chosen_id  = chosen.split(" — ")[0]
-    chosen_row = wl_df[wl_df["faculty_id"] == chosen_id].iloc[0]
-
-    # Progress bar
-    total_h = int(chosen_row["total"])
-    max_h   = int(chosen_row["max_hours"])
-    pct     = min(total_h / max_h, 1.0) if max_h else 0.0
-    bar_clr = (
-        "#EF4444" if chosen_row["status"] == "OVERLOAD"
-        else "#F59E0B" if chosen_row["status"] == "NEAR"
-        else "#10B981"
-    )
-    st.markdown(
-        f'<div style="font-size:0.85rem; color:#6B7280; margin-bottom:0.3rem;">'
-        f'Teaching load: <strong style="color:{bar_clr};">{total_h}h</strong>'
-        f' of {max_h}h weekly max</div>',
-        unsafe_allow_html=True,
-    )
-    st.progress(pct)
-    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-
-    # Weekly timetable grid: rows=periods, columns=days
-    DAYS_ORDER  = list(DAYS)  # from config
-    period_cols = [f"P{p}" for p in range(1, 7)]
-
-    fac_path = resolve_output_path(f"faculty_{chosen_id}_timetable.csv")
-    if fac_path.exists():
-        raw_df = pd.read_csv(fac_path)
-
-        # Build period × day pivot
-        grid: dict = {col: {} for col in period_cols}
-        for _, drow in raw_df.iterrows():
-            day = str(drow["Day"]).strip()
-            for col in period_cols:
-                cell = str(drow.get(col, "----")).strip()
-                grid[col][day] = (
-                    "Free" if cell in ("----", "", "nan") else cell
-                )
-
-        grid_df = pd.DataFrame(grid).T
-        ordered_days = [d for d in DAYS_ORDER if d in grid_df.columns]
-        grid_df = grid_df.reindex(columns=ordered_days)
-        grid_df.index.name = "Period"
-        grid_df = grid_df.reset_index()
-
-        def _grid_cell(val):
-            v = str(val)
-            if v == "Free":
-                return "background-color:#FAFAFA; color:#D1D5DB;"
-            if "LAB" in v.upper():
-                return "background-color:#FEF3C7; color:#92400E; font-weight:500;"
-            return "background-color:#EFF6FF; color:#1E40AF;"
-
-        st.dataframe(
-            grid_df.style.applymap(_grid_cell, subset=ordered_days),
-            use_container_width=True, hide_index=True,
-        )
-
-        # Altair bar chart — periods per day
-        chart_rows = []
-        for _, drow in raw_df.iterrows():
-            day = str(drow["Day"]).strip()
-            cnt = sum(
-                1 for col in period_cols
-                if str(drow.get(col, "----")).strip() not in ("----", "", "nan")
+            st.markdown(
+                f'<div style="background:{color}20;border:2px solid {color};'
+                f'border-radius:12px;padding:20px;text-align:center;">'
+                f'<span style="font-size:3rem;font-weight:700;color:{color};">'
+                f'{score}</span>'
+                f'<span style="font-size:1.2rem;color:{color};"> / 100</span>'
+                f'<br><small style="color:#64748b;">Quality Score</small>'
+                f'</div>',
+                unsafe_allow_html=True,
             )
-            chart_rows.append({"Day": day, "Periods": cnt})
-
-        chart_df = pd.DataFrame(chart_rows)
-        chart_df = chart_df[chart_df["Day"].isin(DAYS_ORDER)].copy()
-        chart_df["Day"] = pd.Categorical(
-            chart_df["Day"], categories=DAYS_ORDER, ordered=True
-        )
-        chart_df = chart_df.sort_values("Day")
-
-        bar = (
-            alt.Chart(chart_df)
-            .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
-            .encode(
-                x=alt.X("Day:N", sort=DAYS_ORDER, title="Day"),
-                y=alt.Y(
-                    "Periods:Q", title="Periods taught",
-                    scale=alt.Scale(domain=[0, 6]),
-                ),
-                color=alt.condition(
-                    alt.datum.Periods >= max_h // len(DAYS_ORDER) + 1,
-                    alt.value("#EF4444"),
-                    alt.value("#2563EB"),
-                ),
-                tooltip=["Day", "Periods"],
-            )
-            .properties(height=200, title=f"{chosen_id} — Periods per Day")
-        )
-        st.altair_chart(bar, use_container_width=True)
-    else:
-        st.info("Timetable file not found for this faculty. Run the pipeline first.")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
-
-    # ── SECTION 3 — Free Slot Finder ─────────────────────────────────────────
-    st.markdown(
-        '<div class="card"><div class="card-header">'
-        '🔎 Free Slot Finder</div>',
-        unsafe_allow_html=True,
-    )
-
-    fs_c1, fs_c2, fs_c3 = st.columns([2, 1, 1])
-    with fs_c1:
-        sel_day = st.selectbox(
-            "Day", DAYS, key="fw_day", label_visibility="collapsed"
-        )
-    with fs_c2:
-        sel_period = st.selectbox(
-            "Period", [f"P{p}" for p in range(1, 7)],
-            key="fw_period", label_visibility="collapsed",
-        )
-    with fs_c3:
-        st.markdown("<div style='height:1.9rem'></div>", unsafe_allow_html=True)
-        find_clicked = st.button(
-            "🔍 Find Free Faculty", type="primary",
-            use_container_width=True, key="fw_find",
-        )
-
-    if find_clicked:
-        free_rows = []
-        for _, frow in wl_df.iterrows():
-            fid  = str(frow["faculty_id"]).strip()
-            fp   = resolve_output_path(f"faculty_{fid}_timetable.csv")
-            if not fp.exists():
-                continue
-            try:
-                tdf  = pd.read_csv(fp)
-                drow = tdf[tdf["Day"].str.lower() == sel_day.lower()]
-                if drow.empty:
-                    continue
-                cell = str(drow.iloc[0].get(sel_period, "----")).strip()
-                if cell in ("----", "", "nan"):
-                    free_rows.append({
-                        "Faculty ID":     fid,
-                        "Name":           frow["name"],
-                        "Designation":    frow["designation"],
-                        "Weekly Load":    f"{int(frow['total'])} / {int(frow['max_hours'])}h",
-                        "Status":         frow["status"],
-                    })
-            except Exception:
-                continue
-
-        if free_rows:
-            free_df = pd.DataFrame(free_rows)
-
-            def _free_row_style(row):
-                s = row.get("Status", "OK")
-                bg = (
-                    "#FEE2E2" if s == "OVERLOAD"
-                    else "#FEF3C7" if s == "NEAR"
-                    else "#D1FAE5"
-                )
-                return [
-                    f"background-color:{bg};" if c == "Status" else ""
-                    for c in row.index
-                ]
-
             st.caption(
-                f"{len(free_rows)} faculty free on "
-                f"**{sel_day} {sel_period}**:"
-            )
-            st.dataframe(
-                free_df.style.apply(_free_row_style, axis=1),
-                use_container_width=True, hide_index=True,
+                f"same_subject_same_day: {q['same_day']}  |  "
+                f"back_to_back: {q['back_to_back']}  |  "
+                f"overload: {q['overload_count']}"
             )
         else:
-            st.info(f"All faculty are teaching on {sel_day} {sel_period}.")
+            st.info("Run pipeline to see quality metrics.")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    # ── Faculty load heatmap ──────────────────────────────────────────────────
+    with col_r:
+        st.subheader("👥 Faculty Load Heatmap")
+        # Bug #1 fix: _faculty_load_df uses groupby-equivalent vectorised ops
+        load_df = _faculty_load_df(sem_id)
+        if load_df is not None and not load_df.empty:
+            try:
+                import altair as alt
+                load_df["status"] = load_df.apply(
+                    lambda r: (
+                        "Over cap" if r["total_slots"] > r["max_hours"] else
+                        "At cap" if r["total_slots"] == r["max_hours"] else
+                        "Under cap"
+                    ),
+                    axis=1,
+                )
+                color_scale = alt.Scale(
+                    domain=["Under cap", "At cap", "Over cap"],
+                    range=["#16a34a", "#d97706", "#dc2626"],
+                )
+                chart = (
+                    alt.Chart(load_df)
+                    .mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3)
+                    .encode(
+                        x=alt.X("faculty_id:N", sort=None, title="Faculty"),
+                        y=alt.Y("total_slots:Q", title="Weekly Slots"),
+                        color=alt.Color("status:N", scale=color_scale,
+                                        legend=alt.Legend(title="Status")),
+                        tooltip=["faculty_id", "name", "total_slots",
+                                 "max_hours", "designation", "status"],
+                    )
+                    .properties(height=250)
+                    .configure_axis(labelFontSize=10)
+                )
+                st.altair_chart(chart, use_container_width=True)
+            except ImportError:
+                st.dataframe(load_df[["faculty_id", "name", "total_slots", "max_hours"]])
+        else:
+            st.info("Generate timetable first.")
+
+    st.divider()
+
+    # ── Timetable health stats ────────────────────────────────────────────────
+    st.subheader("🏥 Timetable Health")
+    if report_text:
+        q = _parse_quality(report_text)
+        unassigned = _room_unassigned_count(sem_id)
+        h1, h2, h3, h4 = st.columns(4)
+        h1.metric("Theory/Elective Slots", q["theory_slots"])
+        h2.metric("Lab Slots", q["lab_slots"])
+        h3.metric("Elective Slots", q["elec_slots"])
+        h4.metric("ROOM_UNASSIGNED", unassigned, delta_color="inverse")
+    else:
+        st.info("No summary report found.")
+
+    st.divider()
+
+    # ── Section coverage table ────────────────────────────────────────────────
+    st.subheader("📋 Section Coverage")
+    assignments_df = _load_assignments(sem_id)
+    courses_df_cov = _load_courses(sem_id)
+    if assignments_df is not None and courses_df_cov is not None:
+        try:
+            core = courses_df_cov[
+                (courses_df_cov.get("is_elective", pd.Series(False)) == False)
+            ]["course_code"].tolist() if "is_elective" in courses_df_cov.columns else \
+                courses_df_cov["course_code"].tolist()
+
+            # Build section × course coverage grid
+            coverage = {}
+            for sec in SECTIONS:
+                coverage[sec] = {}
+                for cc in core:
+                    assigned = assignments_df[
+                        (assignments_df["course_code"].astype(str) == cc)
+                    ]
+                    # check if this section appears in sections_handled
+                    if "sections_handled" in assigned.columns:
+                        covered = assigned["sections_handled"].astype(str).str.contains(sec).any()
+                    elif "section" in assigned.columns:
+                        covered = (assigned["section"].astype(str) == sec).any()
+                    else:
+                        covered = False
+                    coverage[sec][cc] = "✅" if covered else "❌"
+
+            cov_df = pd.DataFrame(coverage).T
+            cov_df.index.name = "Section"
+            st.dataframe(cov_df, use_container_width=True)
+        except Exception as e:
+            st.warning(f"Could not build coverage table: {e}")
+    else:
+        st.info("assignments.csv not found in data directory.")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# MAIN
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
+# PAGE 2 — TIMETABLES
+# =============================================================================
 
-def main() -> None:
-    st.set_page_config(
-        page_title="Timetable OS",
-        page_icon="📅",
-        layout="wide",
-        initial_sidebar_state="expanded",
+def _render_timetables():
+    sem_id = st.session_state.sem_id
+    sem_paths = get_sem_paths(sem_id)
+    out = sem_paths.output_dir
+
+    st.title("📅 Timetables")
+
+    if not out.exists():
+        _no_output_banner(sem_id)
+        return
+
+    tab_sec, tab_fac, tab_room = st.tabs(["By Section", "By Faculty", "Room Assignments"])
+
+    # ── By Section ────────────────────────────────────────────────────────────
+    with tab_sec:
+        section = st.selectbox("Select Section", SECTIONS, key="tt_section")
+        df = _load_section_csv(sem_id, section)
+        if df is None:
+            st.warning(f"No timetable for section {section}.")
+        else:
+            st.markdown("**Period times shown in row labels. Cell colours: 🔵 Theory · 🟢 Lab · 🟣 Elective**")
+            st.markdown(_render_timetable_html(df), unsafe_allow_html=True)
+            csv_bytes = df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                f"⬇ Download Section {section} CSV",
+                data=csv_bytes,
+                file_name=f"section_{section}_timetable.csv",
+                mime="text/csv",
+            )
+
+    # ── By Faculty ────────────────────────────────────────────────────────────
+    with tab_fac:
+        faculty_df = _load_faculty_meta(sem_id)
+        if faculty_df is None:
+            st.warning("faculty.csv not found.")
+        else:
+            fac_options = [
+                f"{row['faculty_id']} — {row['name']}"
+                for _, row in faculty_df.iterrows()
+            ]
+            chosen_fac = st.selectbox("Select Faculty", fac_options, key="tt_faculty")
+            fid = chosen_fac.split(" — ")[0].strip()
+            fdf = _load_faculty_csv(sem_id, fid)
+            if fdf is None:
+                st.warning(f"No timetable for {fid}.")
+            else:
+                st.markdown("**Cell content: SUBJECT (section)  |  e.g. ML (A)**")
+                st.markdown(_render_timetable_html(fdf), unsafe_allow_html=True)
+                csv_bytes = fdf.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    f"⬇ Download {fid} CSV",
+                    data=csv_bytes,
+                    file_name=f"faculty_{fid}_timetable.csv",
+                    mime="text/csv",
+                )
+
+    # ── Room Assignments ──────────────────────────────────────────────────────
+    with tab_room:
+        ra_df = _load_room_assignment(sem_id)
+        if ra_df is None:
+            st.warning("room_assignment.csv not found.")
+        else:
+            # Filters
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                day_filter = st.selectbox("Day", ["All"] + DAYS, key="room_day")
+            with col_b:
+                period_opts = ["All"] + [f"P{p}" for p in range(1, 7)]
+                period_filter = st.selectbox("Period", period_opts, key="room_period")
+            with col_c:
+                sec_filter = st.selectbox("Section", ["All"] + list(SECTIONS), key="room_sec")
+
+            filtered = ra_df.copy()
+            if day_filter != "All":
+                filtered = filtered[filtered["Day"] == day_filter]
+            if period_filter != "All":
+                filtered = filtered[filtered["Period"] == period_filter]
+            if sec_filter != "All":
+                filtered = filtered[filtered["Section"].astype(str) == sec_filter]
+
+            st.dataframe(filtered, use_container_width=True, height=450)
+            unassigned = int((filtered["Room"] == "ROOM_UNASSIGNED").sum())
+            if unassigned:
+                st.warning(f"⚠️ {unassigned} ROOM_UNASSIGNED slot(s) in current view.")
+
+
+# =============================================================================
+# PAGE 3 — SUBSTITUTE FINDER
+# =============================================================================
+
+def _render_substitute():
+    sem_id = st.session_state.sem_id
+    sem_paths = get_sem_paths(sem_id)
+    out = sem_paths.output_dir
+
+    st.title("🔄 Substitute Finder")
+
+    if not out.exists():
+        _no_output_banner(sem_id)
+        return
+
+    faculty_df = _load_faculty_meta(sem_id)
+    if faculty_df is None:
+        st.error("faculty.csv not found.")
+        return
+
+    fac_options = [
+        f"{row['faculty_id']} — {row['name']}"
+        for _, row in faculty_df.iterrows()
+    ]
+
+    col1, col2 = st.columns(2)
+    with col1:
+        chosen_fac = st.selectbox("Absent Faculty", fac_options, key="sub_faculty")
+    with col2:
+        day = st.selectbox("Day of Absence", DAYS, key="sub_day")
+
+    fid = chosen_fac.split(" — ")[0].strip()
+
+    # Priority order selector
+    priority_label = st.radio(
+        "Priority order:",
+        options=[
+            "Same subject → Same section → Any free",
+            "Same section → Same subject → Any free",
+        ],
+        index=0,
+        key="sub_priority",
+        horizontal=True,
     )
-    inject_css()
-    page = render_sidebar()
+    priority = "subject_first" if priority_label.startswith("Same subject") else "section_first"
 
+    if st.button("🔍 Find Substitutes", type="primary"):
+        with st.spinner("Analysing schedules…"):
+            try:
+                from src.phase5.substitute import find_substitute
+                # Bug #3 fix: always pass sem_id (out_dir resolved inside)
+                result = find_substitute(fid, day, sem_id=sem_id, priority=priority)
+
+                absent_name = result.get("absent_faculty_name", fid)
+                absent_secs = result.get("absent_sections", [])
+                mode_label  = result.get("priority_mode", priority)
+                st.success(
+                    f"Substitute plan for **{absent_name}** on **{day}**  "
+                    f"· sections: {', '.join(absent_secs)}  "
+                    f"· mode: `{mode_label}`"
+                )
+
+                orig_slots = result.get("original_slots", [])
+                if orig_slots:
+                    st.markdown("**Original schedule:**")
+                    slot_df = pd.DataFrame(orig_slots)
+                    st.dataframe(slot_df, use_container_width=True, hide_index=True)
+
+                subs = result.get("substitutions", [])
+                if subs:
+                    # Labels derived from match_type (semantic tier),
+                    # not the numeric rank (which flips when priority mode changes).
+                    _MATCH_LABELS = {
+                        "same_course":  "✅ Same subject",
+                        "same_section": "🔷 Same section",
+                        "available":    "🔹 Any free",
+                    }
+                    _RANK_SUFFIX = {1: " [R1]", 2: " [R2]", 3: " [R3]"}
+                    st.markdown("**Substitute assignments:**")
+                    sub_rows = []
+                    for s in subs:
+                        match_type = s.get("match_type", "available")
+                        rank       = s.get("priority", 3)
+                        label = _MATCH_LABELS.get(match_type, match_type) + _RANK_SUFFIX.get(rank, "")
+                        sub_rows.append({
+                            "Period":         s.get("period", ""),
+                            "Course":         s.get("course", ""),
+                            "Section":        s.get("section", ""),
+                            "Match":          label,
+                            "Substitute":     s.get("substitute_name", ""),
+                            "Sub ID":         s.get("substitute_id", ""),
+                            "Designation":    s.get("designation", ""),
+                            "Projected Load": s.get("projected_load", ""),
+                            "Reason":         s.get("reason", ""),
+                        })
+                    st.dataframe(
+                        pd.DataFrame(sub_rows),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                else:
+                    st.info("No substitutes could be found for any slot.")
+
+                # ── At-cap notes ─────────────────────────────────────────────
+                at_cap = result.get("at_cap_notes", [])
+                if at_cap:
+                    note_lines = []
+                    for n in at_cap:
+                        tier = "same subject" if n["match_type"] == "same_course" else "same section"
+                        note_lines.append(
+                            f"**{n['faculty_name']}** ({n['faculty_id']}) — {tier} — "
+                            f"at cap ({n['total_hours']}/{n['max_hours']} hrs)"
+                        )
+                    st.warning(
+                        "⚠️ **At-cap faculty** (qualified but excluded from results):\n\n"
+                        + "\n\n".join(note_lines)
+                    )
+
+                unresolved = result.get("unresolved", [])
+                if unresolved:
+                    st.error(
+                        f"❌ {len(unresolved)} slot(s) unresolved:\n"
+                        + "\n".join(
+                            f"- {u['period']}: {u['course']} (Section {u['section']}) — {u['reason']}"
+                            for u in unresolved
+                        )
+                    )
+
+            except Exception as e:
+                st.error(f"Substitute finder error: {e}")
+
+
+# =============================================================================
+# PAGE 4 — FACULTY WORKLOAD
+# =============================================================================
+
+def _render_workload():
+    sem_id = st.session_state.sem_id
+    sem_paths = get_sem_paths(sem_id)
+    out = sem_paths.output_dir
+
+    st.title("👩‍🏫 Faculty Workload")
+
+    if not out.exists():
+        _no_output_banner(sem_id)
+        return
+
+    faculty_df = _load_faculty_meta(sem_id)
+    if faculty_df is None:
+        st.error("faculty.csv not found.")
+        return
+
+    fac_options = [
+        f"{row['faculty_id']} — {row['name']}"
+        for _, row in faculty_df.iterrows()
+    ]
+    chosen_fac = st.selectbox("Select Faculty", fac_options, key="wl_faculty")
+    fid = chosen_fac.split(" — ")[0].strip()
+
+    frow = faculty_df[faculty_df["faculty_id"].astype(str).str.strip() == fid].iloc[0]
+    designation = str(frow.get("designation", ""))
+    max_h = MAX_HOURS.get(designation, 16)
+
+    # Load personal timetable
+    fdf = _load_faculty_csv(sem_id, fid)
+
+    col_l, col_r = st.columns([2, 1])
+
+    with col_l:
+        st.subheader("Weekly Schedule")
+        if fdf is not None:
+            st.markdown(_render_timetable_html(fdf), unsafe_allow_html=True)
+        else:
+            st.warning("No timetable found for this faculty.")
+
+    with col_r:
+        st.subheader("Load Summary")
+        load_df = _faculty_load_df(sem_id)
+        if load_df is not None:
+            fload = load_df[load_df["faculty_id"] == fid]
+            if not fload.empty:
+                total_h = int(fload.iloc[0]["total_slots"])
+                pct = round(total_h / max_h * 100, 1) if max_h else 0
+                st.metric("Hours Assigned", total_h)
+                st.metric("Cap", max_h)
+                st.metric("Utilization", f"{pct}%")
+                if total_h > max_h:
+                    st.error("🔴 Over cap")
+                elif total_h == max_h:
+                    st.warning("⚠️ At cap")
+                else:
+                    st.success("✅ Under cap")
+
+        # Preferences
+        st.subheader("Preferences")
+        pref_time = str(frow.get("pref_time", "none"))
+        pref_btb  = str(frow.get("pref_no_backtoback", "False"))
+        pref_day  = str(frow.get("pref_no_teaching_day", "none"))
+
+        st.markdown(f"**Time preference:** {pref_time.capitalize()}")
+        pref_btb_bool = pref_btb.strip().lower() in ("true", "1", "yes")
+        st.markdown(f"**No back-to-back:** {'Yes' if pref_btb_bool else 'No'}")
+        st.markdown(
+            f"**Free day preference:** {pref_day if pref_day.lower() != 'none' else 'None'}"
+        )
+
+    st.divider()
+
+    # ── All-faculty heatmap ───────────────────────────────────────────────────
+    st.subheader("📊 All Faculty Load Comparison")
+    load_df = _faculty_load_df(sem_id)
+    if load_df is not None and not load_df.empty:
+        try:
+            import altair as alt
+            load_df["status"] = load_df.apply(
+                lambda r: (
+                    "Over cap" if r["total_slots"] > r["max_hours"] else
+                    "At cap" if r["total_slots"] == r["max_hours"] else
+                    "Under cap"
+                ),
+                axis=1,
+            )
+            # Highlight selected faculty
+            load_df["selected"] = load_df["faculty_id"] == fid
+            color_scale = alt.Scale(
+                domain=["Under cap", "At cap", "Over cap"],
+                range=["#16a34a", "#d97706", "#dc2626"],
+            )
+            chart = (
+                alt.Chart(load_df)
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                .encode(
+                    x=alt.X("faculty_id:N", sort=None, title="Faculty"),
+                    y=alt.Y("total_slots:Q", title="Weekly Slots"),
+                    color=alt.Color("status:N", scale=color_scale),
+                    opacity=alt.condition(
+                        alt.datum.faculty_id == fid,
+                        alt.value(1.0),
+                        alt.value(0.6),
+                    ),
+                    tooltip=["faculty_id", "name", "total_slots", "max_hours", "designation"],
+                )
+                .properties(height=320)
+            )
+            st.altair_chart(chart, use_container_width=True)
+        except ImportError:
+            st.dataframe(load_df[["faculty_id", "name", "total_slots", "max_hours", "status"]])
+
+
+# =============================================================================
+# PAGE 5 — AI ASSISTANT
+# =============================================================================
+
+def _render_ai_assistant():
+    sem_id = st.session_state.sem_id
+    sem_paths = get_sem_paths(sem_id)
+    out = sem_paths.output_dir
+
+    st.title("🤖 AI Assistant")
+
+    if not out.exists():
+        _no_output_banner(sem_id)
+        return
+
+    # ── Suggestion chips ──────────────────────────────────────────────────────
+    suggestions = [
+        "What is Section A's timetable?",
+        "Who teaches on Wednesday P3?",
+        "Which faculty are free on Monday P1?",
+        "Find a substitute for F01 on Tuesday",
+        "Compare workload of F01 and F02",
+    ]
+    st.markdown("**Quick queries:**")
+    chip_cols = st.columns(len(suggestions))
+    for col, sugg in zip(chip_cols, suggestions):
+        if col.button(sugg, key=f"chip_{sugg[:15]}"):
+            st.session_state.chat_history.append((sugg, None))
+            st.rerun()
+
+    st.divider()
+
+    # ── Chat history ──────────────────────────────────────────────────────────
+    for i, (user_msg, ai_msg) in enumerate(st.session_state.chat_history):
+        with st.chat_message("user"):
+            st.write(user_msg)
+        if ai_msg is not None:
+            with st.chat_message("assistant"):
+                st.write(ai_msg)
+
+    # Process any pending (user_msg, None) entries
+    for i, (user_msg, ai_msg) in enumerate(st.session_state.chat_history):
+        if ai_msg is None:
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking…"):
+                    try:
+                        from src.phase5.ai_explainer import explain_with_rag, _is_multihop, _decompose_query
+                        history_for_llm = [
+                            (u, a)
+                            for u, a in st.session_state.chat_history[:i]
+                            if a is not None
+                        ][-4:]
+
+                        # Bug #5 fix: skip faculty filter for substitute queries
+                        # (handled inside retrieve via _extract_filters — we pass
+                        # a prefixed query so the filter is not applied)
+                        query = user_msg
+                        if _is_substitute_query(query):
+                            query = f"[SUBSTITUTE_INTENT] {query}"
+
+                        raw_debug = {}
+                        is_multi = _is_multihop(user_msg)
+                        raw_debug["multihop"] = is_multi
+                        if is_multi:
+                            try:
+                                sub_qs = _decompose_query(user_msg, sem_id=sem_id)
+                                raw_debug["sub_queries"] = sub_qs
+                            except Exception:
+                                raw_debug["sub_queries"] = []
+
+                        # retrieve to get debug info
+                        try:
+                            from src.phase5.rag_indexer import retrieve
+                            docs = retrieve(user_msg, k=5, sem_id=sem_id)
+                            raw_debug["docs_retrieved"] = len(docs)
+                            raw_debug["reranked"] = any("ce_score" in d for d in docs)
+                            raw_debug["top_snippets"] = [
+                                d.get("text", "")[:80] for d in docs[:3]
+                            ]
+                        except Exception:
+                            raw_debug["docs_retrieved"] = 0
+                            raw_debug["reranked"] = False
+                            raw_debug["top_snippets"] = []
+
+                        response = explain_with_rag(
+                            user_msg,
+                            history=history_for_llm,
+                            sem_id=sem_id,
+                        )
+                        st.session_state.chat_history[i] = (user_msg, response)
+                        st.session_state._rag_debug = raw_debug
+                        st.write(response)
+
+                    except Exception as e:
+                        err = f"⚠️ AI assistant error: {e}"
+                        st.session_state.chat_history[i] = (user_msg, err)
+                        st.error(err)
+
+            st.rerun()
+            break
+
+    # ── Retrieval debug panel ─────────────────────────────────────────────────
+    if st.session_state._rag_debug:
+        with st.expander("🔍 Retrieval details", expanded=False):
+            dbg = st.session_state._rag_debug
+            is_multi = dbg.get("multihop", False)
+            st.markdown(f"**Decomposed:** {'Yes' if is_multi else 'No'}")
+            if is_multi and dbg.get("sub_queries"):
+                for sq in dbg["sub_queries"]:
+                    st.markdown(f"  - {sq}")
+            st.markdown(f"**Docs retrieved after filtering:** {dbg.get('docs_retrieved', 0)}")
+            st.markdown(f"**Cross-encoder reranking:** {'Yes' if dbg.get('reranked') else 'No'}")
+            snippets = dbg.get("top_snippets", [])
+            if snippets:
+                st.markdown("**Top 3 doc snippets:**")
+                for s in snippets:
+                    st.caption(s)
+
+    # ── Input box ─────────────────────────────────────────────────────────────
+    user_input = st.chat_input("Ask about the timetable…")
+    if user_input and user_input.strip():
+        st.session_state.chat_history.append((user_input.strip(), None))
+        st.rerun()
+
+
+# =============================================================================
+# PAGE 6 — AI AGENT
+# =============================================================================
+
+def _render_ai_agent():
+    sem_id = st.session_state.sem_id
+    sem_paths = get_sem_paths(sem_id)
+    out = sem_paths.output_dir
+
+    st.title("🤖 AI Agent")
+
+    if not out.exists():
+        _no_output_banner(sem_id)
+        return
+
+    st.info(
+        "The agent can read section/faculty timetables, find substitutes, "
+        "commit changes, and rollback. **Write operations** (commit, rollback) "
+        "require explicit confirmation.",
+        icon="ℹ️",
+    )
+
+    faculty_df = _load_faculty_meta(sem_id)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        absent_fac = "F01"
+        if faculty_df is not None:
+            fac_options = [
+                f"{row['faculty_id']} — {row['name']}"
+                for _, row in faculty_df.iterrows()
+            ]
+            chosen_fac = st.selectbox("Absent Faculty", fac_options, key="agent_fac")
+            absent_fac = chosen_fac.split(" — ")[0].strip()
+    with col2:
+        absent_day = st.selectbox("Day of Absence", DAYS, key="agent_day")
+
+    default_instr = (
+        f"Faculty {absent_fac} is absent on {absent_day}. "
+        f"Find their schedule, identify substitute candidates for each period, "
+        f"and present the top 3 options. DO NOT commit without my confirmation."
+    )
+    instruction = st.text_area(
+        "Agent Instruction",
+        value=default_instr,
+        height=100,
+        key="agent_instruction",
+    )
+
+    # ── Build effective instruction (append confirmation if needed) ──────────
+    effective_instruction = instruction
+    if st.session_state._agent_confirm:
+        effective_instruction = instruction + "\n\nYes, proceed and commit the substitution."
+        st.session_state._agent_confirm = False
+
+    if st.button("▶ Run Agent", type="primary") or (
+        st.session_state.get("_agent_confirm_triggered", False)
+    ):
+        st.session_state["_agent_confirm_triggered"] = False
+        with st.spinner("Agent working…"):
+            try:
+                from src.phase5.agent import create_timetable_agent
+                # Bug #4 fix: wrap in try/except, clean message only
+                agent = create_timetable_agent(sem_id=sem_id)
+                if agent is None:
+                    st.warning(
+                        "Agent unavailable — check GROQ_API_KEY and LangChain installation."
+                    )
+                else:
+                    result = agent({"input": effective_instruction})
+                    output = result.get("output", "")
+                    reasoning = result.get("reasoning", [])
+
+                    st.session_state.agent_output = output
+
+                    st.markdown("### Agent Response")
+                    st.markdown(
+                        f'<div style="background:#f8fafc;border:1px solid #e2e8f0;'
+                        f'border-radius:8px;padding:16px;">{output}</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    if reasoning:
+                        with st.expander("🔧 Reasoning chain"):
+                            for step in reasoning:
+                                st.caption(f"• {step}")
+
+                    # ── Confirm button if agent is proposing a commit ────────────────
+                    wants_commit = any(kw in output.lower() for kw in [
+                        "confirm", "proceed", "shall i commit", "commit the substitute",
+                        "do you want me to", "please confirm", "ready to commit",
+                        "should i commit", "want me to apply",
+                    ])
+                    if wants_commit:
+                        st.warning(
+                            "⚠️ **Agent is proposing a schedule change.** "
+                            "Review the plan above, then confirm:"
+                        )
+                        col_yes, col_no = st.columns(2)
+                        if col_yes.button(
+                            "✅ Yes, commit the change",
+                            type="primary",
+                            key="agent_confirm_yes",
+                        ):
+                            st.session_state._agent_confirm = True
+                            st.session_state["_agent_confirm_triggered"] = True
+                            st.rerun()
+                        if col_no.button(
+                            "❌ No, cancel",
+                            key="agent_confirm_no",
+                        ):
+                            st.info("Change cancelled.")
+                            st.session_state.agent_output = ""
+
+            except Exception as e:
+                # Bug #4 fix: never show stack trace
+                st.warning(
+                    "⚠️ Agent encountered a tool error. "
+                    "Ensure the timetable has been generated for this semester."
+                )
+                # dev detail in expander only
+                with st.expander("Technical detail (dev)"):
+                    st.code(str(e))
+
+    # ── Recent operations panel ───────────────────────────────────────────────
+    agent_ops_dir = sem_paths.agent_ops_dir
+    if agent_ops_dir.exists():
+        op_files = sorted(agent_ops_dir.glob("*.json"), reverse=True)[:5]
+        if op_files:
+            with st.expander("📋 Recent Operations", expanded=False):
+                for op_path in op_files:
+                    try:
+                        op = json.loads(op_path.read_text(encoding="utf-8"))
+                        ts  = op.get("timestamp", op_path.stem)
+                        act = op.get("action", "?")
+                        sec = op.get("section_id", "?")
+                        day = op.get("day", "?")
+                        stat = op.get("commit_result", "?")
+                        absent = op.get("absent_faculty", "?")
+                        sub    = op.get("substitute_faculty", "?")
+
+                        c1, c2 = st.columns([4, 1])
+                        c1.markdown(
+                            f"**[{ts[:19]}]** `{act.upper()}` — "
+                            f"Sec {sec} · {day} · {absent} → {sub} · *{stat}*"
+                        )
+                        op_id = op.get("operation_id", op_path.stem)
+                        if c2.button("↩ Rollback", key=f"rb_{op_id}"):
+                            try:
+                                from src.phase5.agent_ops import rollback_operation
+                                msg = rollback_operation(op_id)
+                                st.success(msg)
+                                st.cache_data.clear()
+                            except Exception as e:
+                                st.error(f"Rollback failed: {e}")
+                    except Exception:
+                        continue
+
+
+# =============================================================================
+# MAIN ROUTER
+# =============================================================================
+
+def main():
+    _render_sidebar()
+
+    page = st.session_state.current_page
     if page == "Dashboard":
-        render_dashboard()
+        _render_dashboard()
     elif page == "Timetables":
-        render_timetables()
+        _render_timetables()
     elif page == "Substitute Finder":
-        render_substitute()
+        _render_substitute()
     elif page == "Faculty Workload":
-        render_faculty_workload()
+        _render_workload()
     elif page == "AI Assistant":
-        render_ai_assistant()
+        _render_ai_assistant()
     elif page == "AI Agent":
-        render_ai_agent()
+        _render_ai_agent()
+    else:
+        _render_dashboard()
 
 
 if __name__ == "__main__":

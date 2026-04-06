@@ -1,0 +1,4946 @@
+[
+  {
+    "text": "Section A on Monday P1: DSA (PJ)",
+    "section": "A",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Monday P2: AFLL (KR)",
+    "section": "A",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Monday P3: MATH (AS)",
+    "section": "A",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Monday P4: DDCO (KR)",
+    "section": "A",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Monday P5: DDCO LAB",
+    "section": "A",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Monday P6: DDCO LAB",
+    "section": "A",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Monday: P1=DSA (PJ), P2=AFLL (KR), P3=MATH (AS), P4=DDCO (KR), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "A",
+    "day": "Monday",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Tuesday P1: DSA (PJ)",
+    "section": "A",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Tuesday P2: DDCO (KR)",
+    "section": "A",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Tuesday P3: WT (SN)",
+    "section": "A",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Tuesday P4: AFLL (KR)",
+    "section": "A",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Tuesday: P1=DSA (PJ), P2=DDCO (KR), P3=WT (SN), P4=AFLL (KR)",
+    "section": "A",
+    "day": "Tuesday",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Wednesday P1: WT (SN)",
+    "section": "A",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Wednesday P2: DDCO (KR)",
+    "section": "A",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Wednesday P3: DSA (PJ)",
+    "section": "A",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Wednesday P4: MATH (AS)",
+    "section": "A",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Wednesday: P1=WT (SN), P2=DDCO (KR), P3=DSA (PJ), P4=MATH (AS)",
+    "section": "A",
+    "day": "Wednesday",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Thursday P1: MATH (AS)",
+    "section": "A",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Thursday P2: DDCO (KR)",
+    "section": "A",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Thursday P3: WT (SN)",
+    "section": "A",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Thursday P4: AFLL (KR)",
+    "section": "A",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Thursday P5: DSA LAB",
+    "section": "A",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Thursday P6: DSA LAB",
+    "section": "A",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Thursday: P1=MATH (AS), P2=DDCO (KR), P3=WT (SN), P4=AFLL (KR), P5=DSA LAB, P6=DSA LAB",
+    "section": "A",
+    "day": "Thursday",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Friday P1: AFLL (KR)",
+    "section": "A",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Friday P2: MATH (AS)",
+    "section": "A",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Friday P3: DSA (PJ)",
+    "section": "A",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Friday P4: WT (SN)",
+    "section": "A",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section A on Friday: P1=AFLL (KR), P2=MATH (AS), P3=DSA (PJ), P4=WT (SN)",
+    "section": "A",
+    "day": "Friday",
+    "source": "section_A_timetable.csv"
+  },
+  {
+    "text": "Section B on Monday P1: MATH (AS)",
+    "section": "B",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Monday P2: DSA (PJ)",
+    "section": "B",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Monday P3: DDCO (KR)",
+    "section": "B",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Monday P4: AFLL (LP)",
+    "section": "B",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Monday P5: DDCO LAB",
+    "section": "B",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Monday P6: DDCO LAB",
+    "section": "B",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Monday: P1=MATH (AS), P2=DSA (PJ), P3=DDCO (KR), P4=AFLL (LP), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "B",
+    "day": "Monday",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Tuesday P1: DDCO (KR)",
+    "section": "B",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Tuesday P2: DSA (PJ)",
+    "section": "B",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Tuesday P3: AFLL (LP)",
+    "section": "B",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Tuesday P4: WT (SN)",
+    "section": "B",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Tuesday: P1=DDCO (KR), P2=DSA (PJ), P3=AFLL (LP), P4=WT (SN)",
+    "section": "B",
+    "day": "Tuesday",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Wednesday P1: DDCO (KR)",
+    "section": "B",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Wednesday P2: WT (SN)",
+    "section": "B",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Wednesday P3: MATH (AS)",
+    "section": "B",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Wednesday P4: DSA (PJ)",
+    "section": "B",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Wednesday: P1=DDCO (KR), P2=WT (SN), P3=MATH (AS), P4=DSA (PJ)",
+    "section": "B",
+    "day": "Wednesday",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Thursday P1: DDCO (KR)",
+    "section": "B",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Thursday P2: WT (SN)",
+    "section": "B",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Thursday P3: MATH (AS)",
+    "section": "B",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Thursday P4: AFLL (LP)",
+    "section": "B",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Thursday P5: DSA LAB",
+    "section": "B",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Thursday P6: DSA LAB",
+    "section": "B",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Thursday: P1=DDCO (KR), P2=WT (SN), P3=MATH (AS), P4=AFLL (LP), P5=DSA LAB, P6=DSA LAB",
+    "section": "B",
+    "day": "Thursday",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Friday P1: MATH (AS)",
+    "section": "B",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Friday P2: DSA (PJ)",
+    "section": "B",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Friday P3: WT (SN)",
+    "section": "B",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Friday P4: AFLL (LP)",
+    "section": "B",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section B on Friday: P1=MATH (AS), P2=DSA (PJ), P3=WT (SN), P4=AFLL (LP)",
+    "section": "B",
+    "day": "Friday",
+    "source": "section_B_timetable.csv"
+  },
+  {
+    "text": "Section C on Monday P1: DDCO (RP)",
+    "section": "C",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Monday P2: MATH (AS)",
+    "section": "C",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Monday P3: DSA (VH)",
+    "section": "C",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Monday P4: AFLL (DM)",
+    "section": "C",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Monday P5: DDCO LAB",
+    "section": "C",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Monday P6: DDCO LAB",
+    "section": "C",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Monday: P1=DDCO (RP), P2=MATH (AS), P3=DSA (VH), P4=AFLL (DM), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "C",
+    "day": "Monday",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Tuesday P1: AFLL (DM)",
+    "section": "C",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Tuesday P2: WT (SN)",
+    "section": "C",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Tuesday P3: DSA (VH)",
+    "section": "C",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Tuesday P4: MATH (AS)",
+    "section": "C",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Tuesday: P1=AFLL (DM), P2=WT (SN), P3=DSA (VH), P4=MATH (AS)",
+    "section": "C",
+    "day": "Tuesday",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Wednesday P1: DDCO (RP)",
+    "section": "C",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Wednesday P2: DSA (VH)",
+    "section": "C",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Wednesday P3: WT (SN)",
+    "section": "C",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Wednesday P4: AFLL (DM)",
+    "section": "C",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Wednesday: P1=DDCO (RP), P2=DSA (VH), P3=WT (SN), P4=AFLL (DM)",
+    "section": "C",
+    "day": "Wednesday",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Thursday P1: WT (SN)",
+    "section": "C",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Thursday P2: MATH (AS)",
+    "section": "C",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Thursday P3: DDCO (RP)",
+    "section": "C",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Thursday P4: DSA (VH)",
+    "section": "C",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Thursday P5: DSA LAB",
+    "section": "C",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Thursday P6: DSA LAB",
+    "section": "C",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Thursday: P1=WT (SN), P2=MATH (AS), P3=DDCO (RP), P4=DSA (VH), P5=DSA LAB, P6=DSA LAB",
+    "section": "C",
+    "day": "Thursday",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Friday P1: AFLL (DM)",
+    "section": "C",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Friday P2: WT (SN)",
+    "section": "C",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Friday P3: MATH (AS)",
+    "section": "C",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Friday P4: DDCO (RP)",
+    "section": "C",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section C on Friday: P1=AFLL (DM), P2=WT (SN), P3=MATH (AS), P4=DDCO (RP)",
+    "section": "C",
+    "day": "Friday",
+    "source": "section_C_timetable.csv"
+  },
+  {
+    "text": "Section D on Monday P1: AFLL (NG)",
+    "section": "D",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Monday P2: DDCO (RP)",
+    "section": "D",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Monday P3: WT (TM)",
+    "section": "D",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Monday P4: DSA (VH)",
+    "section": "D",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Monday P5: DDCO LAB",
+    "section": "D",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Monday P6: DDCO LAB",
+    "section": "D",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Monday: P1=AFLL (NG), P2=DDCO (RP), P3=WT (TM), P4=DSA (VH), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "D",
+    "day": "Monday",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Tuesday P1: WT (TM)",
+    "section": "D",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Tuesday P2: DSA (VH)",
+    "section": "D",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Tuesday P3: MATH (MI)",
+    "section": "D",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Tuesday P4: AFLL (NG)",
+    "section": "D",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Tuesday: P1=WT (TM), P2=DSA (VH), P3=MATH (MI), P4=AFLL (NG)",
+    "section": "D",
+    "day": "Tuesday",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Wednesday P1: DSA (VH)",
+    "section": "D",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Wednesday P2: DDCO (RP)",
+    "section": "D",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Wednesday P3: AFLL (NG)",
+    "section": "D",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Wednesday P4: MATH (MI)",
+    "section": "D",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Wednesday: P1=DSA (VH), P2=DDCO (RP), P3=AFLL (NG), P4=MATH (MI)",
+    "section": "D",
+    "day": "Wednesday",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Thursday P1: WT (TM)",
+    "section": "D",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Thursday P2: MATH (MI)",
+    "section": "D",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Thursday P3: DSA (VH)",
+    "section": "D",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Thursday P4: DDCO (RP)",
+    "section": "D",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Thursday P5: DSA LAB",
+    "section": "D",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Thursday P6: DSA LAB",
+    "section": "D",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Thursday: P1=WT (TM), P2=MATH (MI), P3=DSA (VH), P4=DDCO (RP), P5=DSA LAB, P6=DSA LAB",
+    "section": "D",
+    "day": "Thursday",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Friday P1: AFLL (NG)",
+    "section": "D",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Friday P2: WT (TM)",
+    "section": "D",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Friday P3: DDCO (RP)",
+    "section": "D",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Friday P4: MATH (MI)",
+    "section": "D",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section D on Friday: P1=AFLL (NG), P2=WT (TM), P3=DDCO (RP), P4=MATH (MI)",
+    "section": "D",
+    "day": "Friday",
+    "source": "section_D_timetable.csv"
+  },
+  {
+    "text": "Section E on Monday P1: DDCO (DM)",
+    "section": "E",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Monday P2: MATH (MI)",
+    "section": "E",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Monday P3: DSA (SK)",
+    "section": "E",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Monday P4: WT (TM)",
+    "section": "E",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Monday P5: DDCO LAB",
+    "section": "E",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Monday P6: DDCO LAB",
+    "section": "E",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Monday: P1=DDCO (DM), P2=MATH (MI), P3=DSA (SK), P4=WT (TM), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "E",
+    "day": "Monday",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Tuesday P1: AFLL (AD)",
+    "section": "E",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Tuesday P2: MATH (MI)",
+    "section": "E",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Tuesday P3: WT (TM)",
+    "section": "E",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Tuesday P4: DDCO (DM)",
+    "section": "E",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Tuesday: P1=AFLL (AD), P2=MATH (MI), P3=WT (TM), P4=DDCO (DM)",
+    "section": "E",
+    "day": "Tuesday",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Wednesday P1: DDCO (DM)",
+    "section": "E",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Wednesday P2: DSA (SK)",
+    "section": "E",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Wednesday P3: WT (TM)",
+    "section": "E",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Wednesday P4: AFLL (AD)",
+    "section": "E",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Wednesday: P1=DDCO (DM), P2=DSA (SK), P3=WT (TM), P4=AFLL (AD)",
+    "section": "E",
+    "day": "Wednesday",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Thursday P1: AFLL (AD)",
+    "section": "E",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Thursday P2: DDCO (DM)",
+    "section": "E",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Thursday P3: MATH (MI)",
+    "section": "E",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Thursday P4: DSA (SK)",
+    "section": "E",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Thursday P5: DSA LAB",
+    "section": "E",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Thursday P6: DSA LAB",
+    "section": "E",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Thursday: P1=AFLL (AD), P2=DDCO (DM), P3=MATH (MI), P4=DSA (SK), P5=DSA LAB, P6=DSA LAB",
+    "section": "E",
+    "day": "Thursday",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Friday P1: DSA (SK)",
+    "section": "E",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Friday P2: MATH (MI)",
+    "section": "E",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Friday P3: WT (TM)",
+    "section": "E",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Friday P4: AFLL (AD)",
+    "section": "E",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section E on Friday: P1=DSA (SK), P2=MATH (MI), P3=WT (TM), P4=AFLL (AD)",
+    "section": "E",
+    "day": "Friday",
+    "source": "section_E_timetable.csv"
+  },
+  {
+    "text": "Section F on Monday P1: AFLL (TM)",
+    "section": "F",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Monday P2: DDCO (DM)",
+    "section": "F",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Monday P3: MATH (MI)",
+    "section": "F",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Monday P4: DSA (SK)",
+    "section": "F",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Monday P5: DDCO LAB",
+    "section": "F",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Monday P6: DDCO LAB",
+    "section": "F",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Monday: P1=AFLL (TM), P2=DDCO (DM), P3=MATH (MI), P4=DSA (SK), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "F",
+    "day": "Monday",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Tuesday P1: MATH (MI)",
+    "section": "F",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Tuesday P2: WT (TM)",
+    "section": "F",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Tuesday P3: DDCO (DM)",
+    "section": "F",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Tuesday P4: AFLL (TM)",
+    "section": "F",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Tuesday: P1=MATH (MI), P2=WT (TM), P3=DDCO (DM), P4=AFLL (TM)",
+    "section": "F",
+    "day": "Tuesday",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Wednesday P1: DSA (SK)",
+    "section": "F",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Wednesday P2: DDCO (DM)",
+    "section": "F",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Wednesday P3: MATH (MI)",
+    "section": "F",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Wednesday P4: WT (TM)",
+    "section": "F",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Wednesday: P1=DSA (SK), P2=DDCO (DM), P3=MATH (MI), P4=WT (TM)",
+    "section": "F",
+    "day": "Wednesday",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Thursday P1: DDCO (DM)",
+    "section": "F",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Thursday P2: WT (TM)",
+    "section": "F",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Thursday P3: DSA (SK)",
+    "section": "F",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Thursday P4: AFLL (TM)",
+    "section": "F",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Thursday P5: DSA LAB",
+    "section": "F",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Thursday P6: DSA LAB",
+    "section": "F",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Thursday: P1=DDCO (DM), P2=WT (TM), P3=DSA (SK), P4=AFLL (TM), P5=DSA LAB, P6=DSA LAB",
+    "section": "F",
+    "day": "Thursday",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Friday P1: AFLL (TM)",
+    "section": "F",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Friday P2: DSA (SK)",
+    "section": "F",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Friday P3: MATH (MI)",
+    "section": "F",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Friday P4: WT (TM)",
+    "section": "F",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section F on Friday: P1=AFLL (TM), P2=DSA (SK), P3=MATH (MI), P4=WT (TM)",
+    "section": "F",
+    "day": "Friday",
+    "source": "section_F_timetable.csv"
+  },
+  {
+    "text": "Section G on Monday P1: MATH (LP)",
+    "section": "G",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Monday P2: DDCO (KB)",
+    "section": "G",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Monday P3: AFLL (PJ)",
+    "section": "G",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Monday P4: DSA (AK)",
+    "section": "G",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Monday P5: DDCO LAB",
+    "section": "G",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Monday P6: DDCO LAB",
+    "section": "G",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Monday: P1=MATH (LP), P2=DDCO (KB), P3=AFLL (PJ), P4=DSA (AK), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "G",
+    "day": "Monday",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Tuesday P1: DSA (AK)",
+    "section": "G",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Tuesday P2: WT (PS)",
+    "section": "G",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Tuesday P3: DDCO (KB)",
+    "section": "G",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Tuesday P4: AFLL (PJ)",
+    "section": "G",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Tuesday: P1=DSA (AK), P2=WT (PS), P3=DDCO (KB), P4=AFLL (PJ)",
+    "section": "G",
+    "day": "Tuesday",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Wednesday P1: DSA (AK)",
+    "section": "G",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Wednesday P2: WT (PS)",
+    "section": "G",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Wednesday P3: DDCO (KB)",
+    "section": "G",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Wednesday P4: MATH (LP)",
+    "section": "G",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Wednesday: P1=DSA (AK), P2=WT (PS), P3=DDCO (KB), P4=MATH (LP)",
+    "section": "G",
+    "day": "Wednesday",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Thursday P1: DSA (AK)",
+    "section": "G",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Thursday P2: MATH (LP)",
+    "section": "G",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Thursday P3: WT (PS)",
+    "section": "G",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Thursday P4: AFLL (PJ)",
+    "section": "G",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Thursday P5: DSA LAB",
+    "section": "G",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Thursday P6: DSA LAB",
+    "section": "G",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Thursday: P1=DSA (AK), P2=MATH (LP), P3=WT (PS), P4=AFLL (PJ), P5=DSA LAB, P6=DSA LAB",
+    "section": "G",
+    "day": "Thursday",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Friday P1: AFLL (PJ)",
+    "section": "G",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Friday P2: WT (PS)",
+    "section": "G",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Friday P3: MATH (LP)",
+    "section": "G",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Friday P4: DDCO (KB)",
+    "section": "G",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section G on Friday: P1=AFLL (PJ), P2=WT (PS), P3=MATH (LP), P4=DDCO (KB)",
+    "section": "G",
+    "day": "Friday",
+    "source": "section_G_timetable.csv"
+  },
+  {
+    "text": "Section H on Monday P1: DDCO (KB)",
+    "section": "H",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Monday P2: MATH (LP)",
+    "section": "H",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Monday P3: DSA (AK)",
+    "section": "H",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Monday P4: AFLL (PS)",
+    "section": "H",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Monday P5: DDCO LAB",
+    "section": "H",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Monday P6: DDCO LAB",
+    "section": "H",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Monday: P1=DDCO (KB), P2=MATH (LP), P3=DSA (AK), P4=AFLL (PS), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "H",
+    "day": "Monday",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Tuesday P1: AFLL (PS)",
+    "section": "H",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Tuesday P2: DSA (AK)",
+    "section": "H",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Tuesday P3: WT (PS)",
+    "section": "H",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Tuesday P4: DDCO (KB)",
+    "section": "H",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Tuesday: P1=AFLL (PS), P2=DSA (AK), P3=WT (PS), P4=DDCO (KB)",
+    "section": "H",
+    "day": "Tuesday",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Wednesday P1: WT (PS)",
+    "section": "H",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Wednesday P2: DSA (AK)",
+    "section": "H",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Wednesday P3: MATH (LP)",
+    "section": "H",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Wednesday P4: DDCO (KB)",
+    "section": "H",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Wednesday: P1=WT (PS), P2=DSA (AK), P3=MATH (LP), P4=DDCO (KB)",
+    "section": "H",
+    "day": "Wednesday",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Thursday P1: AFLL (PS)",
+    "section": "H",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Thursday P2: WT (PS)",
+    "section": "H",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Thursday P3: MATH (LP)",
+    "section": "H",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Thursday P4: DSA (AK)",
+    "section": "H",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Thursday P5: DSA LAB",
+    "section": "H",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Thursday P6: DSA LAB",
+    "section": "H",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Thursday: P1=AFLL (PS), P2=WT (PS), P3=MATH (LP), P4=DSA (AK), P5=DSA LAB, P6=DSA LAB",
+    "section": "H",
+    "day": "Thursday",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Friday P1: AFLL (PS)",
+    "section": "H",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Friday P2: MATH (LP)",
+    "section": "H",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Friday P3: DDCO (KB)",
+    "section": "H",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Friday P4: WT (PS)",
+    "section": "H",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section H on Friday: P1=AFLL (PS), P2=MATH (LP), P3=DDCO (KB), P4=WT (PS)",
+    "section": "H",
+    "day": "Friday",
+    "source": "section_H_timetable.csv"
+  },
+  {
+    "text": "Section I on Monday P1: AFLL (SK)",
+    "section": "I",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Monday P2: DSA (DV)",
+    "section": "I",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Monday P3: MATH (LP)",
+    "section": "I",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Monday P4: DDCO (AD)",
+    "section": "I",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Monday P5: DDCO LAB",
+    "section": "I",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Monday P6: DDCO LAB",
+    "section": "I",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Monday: P1=AFLL (SK), P2=DSA (DV), P3=MATH (LP), P4=DDCO (AD), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "I",
+    "day": "Monday",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Tuesday P1: DSA (DV)",
+    "section": "I",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Tuesday P2: AFLL (SK)",
+    "section": "I",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Tuesday P3: DDCO (AD)",
+    "section": "I",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Tuesday P4: WT (PS)",
+    "section": "I",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Tuesday: P1=DSA (DV), P2=AFLL (SK), P3=DDCO (AD), P4=WT (PS)",
+    "section": "I",
+    "day": "Tuesday",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Wednesday P1: DDCO (AD)",
+    "section": "I",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Wednesday P2: MATH (LP)",
+    "section": "I",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Wednesday P3: AFLL (SK)",
+    "section": "I",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Wednesday P4: WT (PS)",
+    "section": "I",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Wednesday: P1=DDCO (AD), P2=MATH (LP), P3=AFLL (SK), P4=WT (PS)",
+    "section": "I",
+    "day": "Wednesday",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Thursday P1: MATH (LP)",
+    "section": "I",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Thursday P2: DSA (DV)",
+    "section": "I",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Thursday P3: DDCO (AD)",
+    "section": "I",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Thursday P4: WT (PS)",
+    "section": "I",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Thursday P5: DSA LAB",
+    "section": "I",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Thursday P6: DSA LAB",
+    "section": "I",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Thursday: P1=MATH (LP), P2=DSA (DV), P3=DDCO (AD), P4=WT (PS), P5=DSA LAB, P6=DSA LAB",
+    "section": "I",
+    "day": "Thursday",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Friday P1: MATH (LP)",
+    "section": "I",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Friday P2: DSA (DV)",
+    "section": "I",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Friday P3: WT (PS)",
+    "section": "I",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Friday P4: AFLL (SK)",
+    "section": "I",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section I on Friday: P1=MATH (LP), P2=DSA (DV), P3=WT (PS), P4=AFLL (SK)",
+    "section": "I",
+    "day": "Friday",
+    "source": "section_I_timetable.csv"
+  },
+  {
+    "text": "Section J on Monday P1: DSA (DV)",
+    "section": "J",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Monday P2: AFLL (SK)",
+    "section": "J",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Monday P3: DDCO (AD)",
+    "section": "J",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Monday P4: WT (HR)",
+    "section": "J",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Monday P5: DDCO LAB",
+    "section": "J",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Monday P6: DDCO LAB",
+    "section": "J",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Monday: P1=DSA (DV), P2=AFLL (SK), P3=DDCO (AD), P4=WT (HR), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "J",
+    "day": "Monday",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Tuesday P1: AFLL (SK)",
+    "section": "J",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Tuesday P2: DSA (DV)",
+    "section": "J",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Tuesday P3: MATH (NG)",
+    "section": "J",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Tuesday P4: DDCO (AD)",
+    "section": "J",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Tuesday: P1=AFLL (SK), P2=DSA (DV), P3=MATH (NG), P4=DDCO (AD)",
+    "section": "J",
+    "day": "Tuesday",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Wednesday P1: MATH (NG)",
+    "section": "J",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Wednesday P2: DDCO (AD)",
+    "section": "J",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Wednesday P3: WT (HR)",
+    "section": "J",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Wednesday P4: AFLL (SK)",
+    "section": "J",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Wednesday: P1=MATH (NG), P2=DDCO (AD), P3=WT (HR), P4=AFLL (SK)",
+    "section": "J",
+    "day": "Wednesday",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Thursday P1: DSA (DV)",
+    "section": "J",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Thursday P2: MATH (NG)",
+    "section": "J",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Thursday P3: WT (HR)",
+    "section": "J",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Thursday P4: DDCO (AD)",
+    "section": "J",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Thursday P5: DSA LAB",
+    "section": "J",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Thursday P6: DSA LAB",
+    "section": "J",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Thursday: P1=DSA (DV), P2=MATH (NG), P3=WT (HR), P4=DDCO (AD), P5=DSA LAB, P6=DSA LAB",
+    "section": "J",
+    "day": "Thursday",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Friday P1: DSA (DV)",
+    "section": "J",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Friday P2: MATH (NG)",
+    "section": "J",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Friday P3: AFLL (SK)",
+    "section": "J",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Friday P4: WT (HR)",
+    "section": "J",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section J on Friday: P1=DSA (DV), P2=MATH (NG), P3=AFLL (SK), P4=WT (HR)",
+    "section": "J",
+    "day": "Friday",
+    "source": "section_J_timetable.csv"
+  },
+  {
+    "text": "Section K on Monday P1: DDCO (SR)",
+    "section": "K",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Monday P2: WT (HR)",
+    "section": "K",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Monday P3: MATH (NG)",
+    "section": "K",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Monday P4: DSA (RS)",
+    "section": "K",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Monday P5: DDCO LAB",
+    "section": "K",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Monday P6: DDCO LAB",
+    "section": "K",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Monday: P1=DDCO (SR), P2=WT (HR), P3=MATH (NG), P4=DSA (RS), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "K",
+    "day": "Monday",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Tuesday P1: MATH (NG)",
+    "section": "K",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Tuesday P2: DSA (RS)",
+    "section": "K",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Tuesday P3: AFLL (DV)",
+    "section": "K",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Tuesday P4: DDCO (SR)",
+    "section": "K",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Tuesday: P1=MATH (NG), P2=DSA (RS), P3=AFLL (DV), P4=DDCO (SR)",
+    "section": "K",
+    "day": "Tuesday",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Wednesday P1: WT (HR)",
+    "section": "K",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Wednesday P2: DDCO (SR)",
+    "section": "K",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Wednesday P3: AFLL (DV)",
+    "section": "K",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Wednesday P4: DSA (RS)",
+    "section": "K",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Wednesday: P1=WT (HR), P2=DDCO (SR), P3=AFLL (DV), P4=DSA (RS)",
+    "section": "K",
+    "day": "Wednesday",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Thursday P1: WT (HR)",
+    "section": "K",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Thursday P2: DDCO (SR)",
+    "section": "K",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Thursday P3: AFLL (DV)",
+    "section": "K",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Thursday P4: MATH (NG)",
+    "section": "K",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Thursday P5: DSA LAB",
+    "section": "K",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Thursday P6: DSA LAB",
+    "section": "K",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Thursday: P1=WT (HR), P2=DDCO (SR), P3=AFLL (DV), P4=MATH (NG), P5=DSA LAB, P6=DSA LAB",
+    "section": "K",
+    "day": "Thursday",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Friday P1: WT (HR)",
+    "section": "K",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Friday P2: DSA (RS)",
+    "section": "K",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Friday P3: AFLL (DV)",
+    "section": "K",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Friday P4: MATH (NG)",
+    "section": "K",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section K on Friday: P1=WT (HR), P2=DSA (RS), P3=AFLL (DV), P4=MATH (NG)",
+    "section": "K",
+    "day": "Friday",
+    "source": "section_K_timetable.csv"
+  },
+  {
+    "text": "Section L on Monday P1: WT (HR)",
+    "section": "L",
+    "day": "Monday",
+    "period": "P1",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Monday P2: DDCO (SR)",
+    "section": "L",
+    "day": "Monday",
+    "period": "P2",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Monday P3: DSA (RS)",
+    "section": "L",
+    "day": "Monday",
+    "period": "P3",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Monday P4: MATH (NG)",
+    "section": "L",
+    "day": "Monday",
+    "period": "P4",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Monday P5: DDCO LAB",
+    "section": "L",
+    "day": "Monday",
+    "period": "P5",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Monday P6: DDCO LAB",
+    "section": "L",
+    "day": "Monday",
+    "period": "P6",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Monday: P1=WT (HR), P2=DDCO (SR), P3=DSA (RS), P4=MATH (NG), P5=DDCO LAB, P6=DDCO LAB",
+    "section": "L",
+    "day": "Monday",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Tuesday P1: DSA (RS)",
+    "section": "L",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Tuesday P2: MATH (NG)",
+    "section": "L",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Tuesday P3: DDCO (SR)",
+    "section": "L",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Tuesday P4: AFLL (DV)",
+    "section": "L",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Tuesday: P1=DSA (RS), P2=MATH (NG), P3=DDCO (SR), P4=AFLL (DV)",
+    "section": "L",
+    "day": "Tuesday",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Wednesday P1: DDCO (SR)",
+    "section": "L",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Wednesday P2: WT (HR)",
+    "section": "L",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Wednesday P3: DSA (RS)",
+    "section": "L",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Wednesday P4: AFLL (DV)",
+    "section": "L",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Wednesday: P1=DDCO (SR), P2=WT (HR), P3=DSA (RS), P4=AFLL (DV)",
+    "section": "L",
+    "day": "Wednesday",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Thursday P1: DDCO (SR)",
+    "section": "L",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Thursday P2: WT (HR)",
+    "section": "L",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Thursday P3: MATH (NG)",
+    "section": "L",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Thursday P4: AFLL (DV)",
+    "section": "L",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Thursday P5: DSA LAB",
+    "section": "L",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Thursday P6: DSA LAB",
+    "section": "L",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Thursday: P1=DDCO (SR), P2=WT (HR), P3=MATH (NG), P4=AFLL (DV), P5=DSA LAB, P6=DSA LAB",
+    "section": "L",
+    "day": "Thursday",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Friday P1: DSA (RS)",
+    "section": "L",
+    "day": "Friday",
+    "period": "P1",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Friday P2: WT (HR)",
+    "section": "L",
+    "day": "Friday",
+    "period": "P2",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Friday P3: MATH (NG)",
+    "section": "L",
+    "day": "Friday",
+    "period": "P3",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Friday P4: AFLL (DV)",
+    "section": "L",
+    "day": "Friday",
+    "period": "P4",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Section L on Friday: P1=DSA (RS), P2=WT (HR), P3=MATH (NG), P4=AFLL (DV)",
+    "section": "L",
+    "day": "Friday",
+    "source": "section_L_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Monday P1: MATH (B)",
+    "faculty": "F01",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Monday P2: MATH (C)",
+    "faculty": "F01",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Monday P3: MATH (A)",
+    "faculty": "F01",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Monday: P1=MATH (B), P2=MATH (C), P3=MATH (A)",
+    "faculty": "F01",
+    "day": "Monday",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Tuesday P4: MATH (C)",
+    "faculty": "F01",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Tuesday: P4=MATH (C)",
+    "faculty": "F01",
+    "day": "Tuesday",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Wednesday P3: MATH (B)",
+    "faculty": "F01",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Wednesday P4: MATH (A)",
+    "faculty": "F01",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Wednesday: P3=MATH (B), P4=MATH (A)",
+    "faculty": "F01",
+    "day": "Wednesday",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Thursday P1: MATH (A)",
+    "faculty": "F01",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Thursday P2: MATH (C)",
+    "faculty": "F01",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Thursday P3: MATH (B)",
+    "faculty": "F01",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Thursday: P1=MATH (A), P2=MATH (C), P3=MATH (B)",
+    "faculty": "F01",
+    "day": "Thursday",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Friday P1: MATH (B)",
+    "faculty": "F01",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Friday P2: MATH (A)",
+    "faculty": "F01",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Friday P3: MATH (C)",
+    "faculty": "F01",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F01 on Friday: P1=MATH (B), P2=MATH (A), P3=MATH (C)",
+    "faculty": "F01",
+    "day": "Friday",
+    "source": "faculty_F01_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Monday P2: MATH (E)",
+    "faculty": "F02",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Monday P3: MATH (F)",
+    "faculty": "F02",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Monday: P2=MATH (E), P3=MATH (F)",
+    "faculty": "F02",
+    "day": "Monday",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Tuesday P1: MATH (F)",
+    "faculty": "F02",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Tuesday P2: MATH (E)",
+    "faculty": "F02",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Tuesday P3: MATH (D)",
+    "faculty": "F02",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Tuesday: P1=MATH (F), P2=MATH (E), P3=MATH (D)",
+    "faculty": "F02",
+    "day": "Tuesday",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Wednesday P3: MATH (F)",
+    "faculty": "F02",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Wednesday P4: MATH (D)",
+    "faculty": "F02",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Wednesday: P3=MATH (F), P4=MATH (D)",
+    "faculty": "F02",
+    "day": "Wednesday",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Thursday P2: MATH (D)",
+    "faculty": "F02",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Thursday P3: MATH (E)",
+    "faculty": "F02",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Thursday: P2=MATH (D), P3=MATH (E)",
+    "faculty": "F02",
+    "day": "Thursday",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Friday P2: MATH (E)",
+    "faculty": "F02",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Friday P3: MATH (F)",
+    "faculty": "F02",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Friday P4: MATH (D)",
+    "faculty": "F02",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F02 on Friday: P2=MATH (E), P3=MATH (F), P4=MATH (D)",
+    "faculty": "F02",
+    "day": "Friday",
+    "source": "faculty_F02_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Monday: no classes",
+    "faculty": "F03",
+    "day": "Monday",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Tuesday P2: WT (C)",
+    "faculty": "F03",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Tuesday P3: WT (A)",
+    "faculty": "F03",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Tuesday P4: WT (B)",
+    "faculty": "F03",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Tuesday: P2=WT (C), P3=WT (A), P4=WT (B)",
+    "faculty": "F03",
+    "day": "Tuesday",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Wednesday P1: WT (A)",
+    "faculty": "F03",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Wednesday P2: WT (B)",
+    "faculty": "F03",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Wednesday P3: WT (C)",
+    "faculty": "F03",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Wednesday: P1=WT (A), P2=WT (B), P3=WT (C)",
+    "faculty": "F03",
+    "day": "Wednesday",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Thursday P1: WT (C)",
+    "faculty": "F03",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Thursday P2: WT (B)",
+    "faculty": "F03",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Thursday P3: WT (A)",
+    "faculty": "F03",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Thursday: P1=WT (C), P2=WT (B), P3=WT (A)",
+    "faculty": "F03",
+    "day": "Thursday",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Friday P2: WT (C)",
+    "faculty": "F03",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Friday P3: WT (B)",
+    "faculty": "F03",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Friday P4: WT (A)",
+    "faculty": "F03",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F03 on Friday: P2=WT (C), P3=WT (B), P4=WT (A)",
+    "faculty": "F03",
+    "day": "Friday",
+    "source": "faculty_F03_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Monday P2: AFLL (A)",
+    "faculty": "F04",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Monday P3: DDCO (B)",
+    "faculty": "F04",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Monday P4: DDCO (A)",
+    "faculty": "F04",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Monday P5: DDCO LAB (A+D)",
+    "faculty": "F04",
+    "day": "Monday",
+    "period": "P5",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Monday P6: DDCO LAB (A+D)",
+    "faculty": "F04",
+    "day": "Monday",
+    "period": "P6",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Monday: P2=AFLL (A), P3=DDCO (B), P4=DDCO (A), P5=DDCO LAB (A+D), P6=DDCO LAB (A+D)",
+    "faculty": "F04",
+    "day": "Monday",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Tuesday P1: DDCO (B)",
+    "faculty": "F04",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Tuesday P2: DDCO (A)",
+    "faculty": "F04",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Tuesday P4: AFLL (A)",
+    "faculty": "F04",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Tuesday: P1=DDCO (B), P2=DDCO (A), P4=AFLL (A)",
+    "faculty": "F04",
+    "day": "Tuesday",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Wednesday P1: DDCO (B)",
+    "faculty": "F04",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Wednesday P2: DDCO (A)",
+    "faculty": "F04",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Wednesday: P1=DDCO (B), P2=DDCO (A)",
+    "faculty": "F04",
+    "day": "Wednesday",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Thursday P1: DDCO (B)",
+    "faculty": "F04",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Thursday P2: DDCO (A)",
+    "faculty": "F04",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Thursday P4: AFLL (A)",
+    "faculty": "F04",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Thursday: P1=DDCO (B), P2=DDCO (A), P4=AFLL (A)",
+    "faculty": "F04",
+    "day": "Thursday",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Friday P1: AFLL (A)",
+    "faculty": "F04",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F04 on Friday: P1=AFLL (A)",
+    "faculty": "F04",
+    "day": "Friday",
+    "source": "faculty_F04_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Monday P1: DDCO (C)",
+    "faculty": "F05",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Monday P2: DDCO (D)",
+    "faculty": "F05",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Monday P5: DDCO LAB (B+J)",
+    "faculty": "F05",
+    "day": "Monday",
+    "period": "P5",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Monday P6: DDCO LAB (B+J)",
+    "faculty": "F05",
+    "day": "Monday",
+    "period": "P6",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Monday: P1=DDCO (C), P2=DDCO (D), P5=DDCO LAB (B+J), P6=DDCO LAB (B+J)",
+    "faculty": "F05",
+    "day": "Monday",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Tuesday: no classes",
+    "faculty": "F05",
+    "day": "Tuesday",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Wednesday P1: DDCO (C)",
+    "faculty": "F05",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Wednesday P2: DDCO (D)",
+    "faculty": "F05",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Wednesday: P1=DDCO (C), P2=DDCO (D)",
+    "faculty": "F05",
+    "day": "Wednesday",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Thursday P3: DDCO (C)",
+    "faculty": "F05",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Thursday P4: DDCO (D)",
+    "faculty": "F05",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Thursday: P3=DDCO (C), P4=DDCO (D)",
+    "faculty": "F05",
+    "day": "Thursday",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Friday P3: DDCO (D)",
+    "faculty": "F05",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Friday P4: DDCO (C)",
+    "faculty": "F05",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F05 on Friday: P3=DDCO (D), P4=DDCO (C)",
+    "faculty": "F05",
+    "day": "Friday",
+    "source": "faculty_F05_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Monday P1: DDCO (E)",
+    "faculty": "F06",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Monday P2: DDCO (F)",
+    "faculty": "F06",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Monday P4: AFLL (C)",
+    "faculty": "F06",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Monday P5: DDCO LAB (C+L)",
+    "faculty": "F06",
+    "day": "Monday",
+    "period": "P5",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Monday P6: DDCO LAB (C+L)",
+    "faculty": "F06",
+    "day": "Monday",
+    "period": "P6",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Monday: P1=DDCO (E), P2=DDCO (F), P4=AFLL (C), P5=DDCO LAB (C+L), P6=DDCO LAB (C+L)",
+    "faculty": "F06",
+    "day": "Monday",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Tuesday P1: AFLL (C)",
+    "faculty": "F06",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Tuesday P3: DDCO (F)",
+    "faculty": "F06",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Tuesday P4: DDCO (E)",
+    "faculty": "F06",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Tuesday: P1=AFLL (C), P3=DDCO (F), P4=DDCO (E)",
+    "faculty": "F06",
+    "day": "Tuesday",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Wednesday P1: DDCO (E)",
+    "faculty": "F06",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Wednesday P2: DDCO (F)",
+    "faculty": "F06",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Wednesday P4: AFLL (C)",
+    "faculty": "F06",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Wednesday: P1=DDCO (E), P2=DDCO (F), P4=AFLL (C)",
+    "faculty": "F06",
+    "day": "Wednesday",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Thursday P1: DDCO (F)",
+    "faculty": "F06",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Thursday P2: DDCO (E)",
+    "faculty": "F06",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Thursday: P1=DDCO (F), P2=DDCO (E)",
+    "faculty": "F06",
+    "day": "Thursday",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Friday P1: AFLL (C)",
+    "faculty": "F06",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F06 on Friday: P1=AFLL (C)",
+    "faculty": "F06",
+    "day": "Friday",
+    "source": "faculty_F06_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Monday P1: DDCO (H)",
+    "faculty": "F07",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Monday P2: DDCO (G)",
+    "faculty": "F07",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Monday P5: DDCO LAB (E+I)",
+    "faculty": "F07",
+    "day": "Monday",
+    "period": "P5",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Monday P6: DDCO LAB (E+I)",
+    "faculty": "F07",
+    "day": "Monday",
+    "period": "P6",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Monday: P1=DDCO (H), P2=DDCO (G), P5=DDCO LAB (E+I), P6=DDCO LAB (E+I)",
+    "faculty": "F07",
+    "day": "Monday",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Tuesday P3: DDCO (G)",
+    "faculty": "F07",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Tuesday P4: DDCO (H)",
+    "faculty": "F07",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Tuesday: P3=DDCO (G), P4=DDCO (H)",
+    "faculty": "F07",
+    "day": "Tuesday",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Wednesday P3: DDCO (G)",
+    "faculty": "F07",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Wednesday P4: DDCO (H)",
+    "faculty": "F07",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Wednesday: P3=DDCO (G), P4=DDCO (H)",
+    "faculty": "F07",
+    "day": "Wednesday",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Thursday: no classes",
+    "faculty": "F07",
+    "day": "Thursday",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Friday P3: DDCO (H)",
+    "faculty": "F07",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Friday P4: DDCO (G)",
+    "faculty": "F07",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F07 on Friday: P3=DDCO (H), P4=DDCO (G)",
+    "faculty": "F07",
+    "day": "Friday",
+    "source": "faculty_F07_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Monday P3: DDCO (J)",
+    "faculty": "F08",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Monday P4: DDCO (I)",
+    "faculty": "F08",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Monday P5: DDCO LAB (F+H)",
+    "faculty": "F08",
+    "day": "Monday",
+    "period": "P5",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Monday P6: DDCO LAB (F+H)",
+    "faculty": "F08",
+    "day": "Monday",
+    "period": "P6",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Monday: P3=DDCO (J), P4=DDCO (I), P5=DDCO LAB (F+H), P6=DDCO LAB (F+H)",
+    "faculty": "F08",
+    "day": "Monday",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Tuesday P1: AFLL (E)",
+    "faculty": "F08",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Tuesday P3: DDCO (I)",
+    "faculty": "F08",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Tuesday P4: DDCO (J)",
+    "faculty": "F08",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Tuesday: P1=AFLL (E), P3=DDCO (I), P4=DDCO (J)",
+    "faculty": "F08",
+    "day": "Tuesday",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Wednesday P1: DDCO (I)",
+    "faculty": "F08",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Wednesday P2: DDCO (J)",
+    "faculty": "F08",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Wednesday P4: AFLL (E)",
+    "faculty": "F08",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Wednesday: P1=DDCO (I), P2=DDCO (J), P4=AFLL (E)",
+    "faculty": "F08",
+    "day": "Wednesday",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Thursday P1: AFLL (E)",
+    "faculty": "F08",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Thursday P3: DDCO (I)",
+    "faculty": "F08",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Thursday P4: DDCO (J)",
+    "faculty": "F08",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Thursday: P1=AFLL (E), P3=DDCO (I), P4=DDCO (J)",
+    "faculty": "F08",
+    "day": "Thursday",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Friday P4: AFLL (E)",
+    "faculty": "F08",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F08 on Friday: P4=AFLL (E)",
+    "faculty": "F08",
+    "day": "Friday",
+    "source": "faculty_F08_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Monday P1: DDCO (K)",
+    "faculty": "F09",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Monday P2: DDCO (L)",
+    "faculty": "F09",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Monday P5: DDCO LAB (G+K)",
+    "faculty": "F09",
+    "day": "Monday",
+    "period": "P5",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Monday P6: DDCO LAB (G+K)",
+    "faculty": "F09",
+    "day": "Monday",
+    "period": "P6",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Monday: P1=DDCO (K), P2=DDCO (L), P5=DDCO LAB (G+K), P6=DDCO LAB (G+K)",
+    "faculty": "F09",
+    "day": "Monday",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Tuesday P3: DDCO (L)",
+    "faculty": "F09",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Tuesday P4: DDCO (K)",
+    "faculty": "F09",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Tuesday: P3=DDCO (L), P4=DDCO (K)",
+    "faculty": "F09",
+    "day": "Tuesday",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Wednesday P1: DDCO (L)",
+    "faculty": "F09",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Wednesday P2: DDCO (K)",
+    "faculty": "F09",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Wednesday: P1=DDCO (L), P2=DDCO (K)",
+    "faculty": "F09",
+    "day": "Wednesday",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Thursday P1: DDCO (L)",
+    "faculty": "F09",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Thursday P2: DDCO (K)",
+    "faculty": "F09",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Thursday: P1=DDCO (L), P2=DDCO (K)",
+    "faculty": "F09",
+    "day": "Thursday",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F09 on Friday: no classes",
+    "faculty": "F09",
+    "day": "Friday",
+    "source": "faculty_F09_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Monday P1: DSA (A)",
+    "faculty": "F10",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Monday P2: DSA (B)",
+    "faculty": "F10",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Monday P3: AFLL (G)",
+    "faculty": "F10",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Monday: P1=DSA (A), P2=DSA (B), P3=AFLL (G)",
+    "faculty": "F10",
+    "day": "Monday",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Tuesday P1: DSA (A)",
+    "faculty": "F10",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Tuesday P2: DSA (B)",
+    "faculty": "F10",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Tuesday P4: AFLL (G)",
+    "faculty": "F10",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Tuesday: P1=DSA (A), P2=DSA (B), P4=AFLL (G)",
+    "faculty": "F10",
+    "day": "Tuesday",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Wednesday P3: DSA (A)",
+    "faculty": "F10",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Wednesday P4: DSA (B)",
+    "faculty": "F10",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Wednesday: P3=DSA (A), P4=DSA (B)",
+    "faculty": "F10",
+    "day": "Wednesday",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Thursday P4: AFLL (G)",
+    "faculty": "F10",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Thursday P5: DSA LAB (A+B)",
+    "faculty": "F10",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Thursday P6: DSA LAB (A+B)",
+    "faculty": "F10",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Thursday: P4=AFLL (G), P5=DSA LAB (A+B), P6=DSA LAB (A+B)",
+    "faculty": "F10",
+    "day": "Thursday",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Friday P1: AFLL (G)",
+    "faculty": "F10",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Friday P2: DSA (B)",
+    "faculty": "F10",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Friday P3: DSA (A)",
+    "faculty": "F10",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F10 on Friday: P1=AFLL (G), P2=DSA (B), P3=DSA (A)",
+    "faculty": "F10",
+    "day": "Friday",
+    "source": "faculty_F10_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Monday P3: DSA (C)",
+    "faculty": "F11",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Monday P4: DSA (D)",
+    "faculty": "F11",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Monday: P3=DSA (C), P4=DSA (D)",
+    "faculty": "F11",
+    "day": "Monday",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Tuesday P2: DSA (D)",
+    "faculty": "F11",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Tuesday P3: DSA (C)",
+    "faculty": "F11",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Tuesday: P2=DSA (D), P3=DSA (C)",
+    "faculty": "F11",
+    "day": "Tuesday",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Wednesday P1: DSA (D)",
+    "faculty": "F11",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Wednesday P2: DSA (C)",
+    "faculty": "F11",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Wednesday: P1=DSA (D), P2=DSA (C)",
+    "faculty": "F11",
+    "day": "Wednesday",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Thursday P3: DSA (D)",
+    "faculty": "F11",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Thursday P4: DSA (C)",
+    "faculty": "F11",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Thursday P5: DSA LAB (C+J)",
+    "faculty": "F11",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Thursday P6: DSA LAB (C+J)",
+    "faculty": "F11",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Thursday: P3=DSA (D), P4=DSA (C), P5=DSA LAB (C+J), P6=DSA LAB (C+J)",
+    "faculty": "F11",
+    "day": "Thursday",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F11 on Friday: no classes",
+    "faculty": "F11",
+    "day": "Friday",
+    "source": "faculty_F11_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Monday P1: AFLL (I)",
+    "faculty": "F12",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Monday P2: AFLL (J)",
+    "faculty": "F12",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Monday P3: DSA (E)",
+    "faculty": "F12",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Monday P4: DSA (F)",
+    "faculty": "F12",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Monday: P1=AFLL (I), P2=AFLL (J), P3=DSA (E), P4=DSA (F)",
+    "faculty": "F12",
+    "day": "Monday",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Tuesday P1: AFLL (J)",
+    "faculty": "F12",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Tuesday P2: AFLL (I)",
+    "faculty": "F12",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Tuesday: P1=AFLL (J), P2=AFLL (I)",
+    "faculty": "F12",
+    "day": "Tuesday",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Wednesday P1: DSA (F)",
+    "faculty": "F12",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Wednesday P2: DSA (E)",
+    "faculty": "F12",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Wednesday P3: AFLL (I)",
+    "faculty": "F12",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Wednesday P4: AFLL (J)",
+    "faculty": "F12",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Wednesday: P1=DSA (F), P2=DSA (E), P3=AFLL (I), P4=AFLL (J)",
+    "faculty": "F12",
+    "day": "Wednesday",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Thursday P3: DSA (F)",
+    "faculty": "F12",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Thursday P4: DSA (E)",
+    "faculty": "F12",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Thursday P5: DSA LAB (H+K)",
+    "faculty": "F12",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Thursday P6: DSA LAB (H+K)",
+    "faculty": "F12",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Thursday: P3=DSA (F), P4=DSA (E), P5=DSA LAB (H+K), P6=DSA LAB (H+K)",
+    "faculty": "F12",
+    "day": "Thursday",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Friday P1: DSA (E)",
+    "faculty": "F12",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Friday P2: DSA (F)",
+    "faculty": "F12",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Friday P3: AFLL (J)",
+    "faculty": "F12",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Friday P4: AFLL (I)",
+    "faculty": "F12",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F12 on Friday: P1=DSA (E), P2=DSA (F), P3=AFLL (J), P4=AFLL (I)",
+    "faculty": "F12",
+    "day": "Friday",
+    "source": "faculty_F12_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Monday P3: DSA (H)",
+    "faculty": "F13",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Monday P4: DSA (G)",
+    "faculty": "F13",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Monday: P3=DSA (H), P4=DSA (G)",
+    "faculty": "F13",
+    "day": "Monday",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Tuesday P1: DSA (G)",
+    "faculty": "F13",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Tuesday P2: DSA (H)",
+    "faculty": "F13",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Tuesday: P1=DSA (G), P2=DSA (H)",
+    "faculty": "F13",
+    "day": "Tuesday",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Wednesday P1: DSA (G)",
+    "faculty": "F13",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Wednesday P2: DSA (H)",
+    "faculty": "F13",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Wednesday: P1=DSA (G), P2=DSA (H)",
+    "faculty": "F13",
+    "day": "Wednesday",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Thursday P1: DSA (G)",
+    "faculty": "F13",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Thursday P4: DSA (H)",
+    "faculty": "F13",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Thursday P5: DSA LAB (E+D)",
+    "faculty": "F13",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Thursday P6: DSA LAB (E+D)",
+    "faculty": "F13",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Thursday: P1=DSA (G), P4=DSA (H), P5=DSA LAB (E+D), P6=DSA LAB (E+D)",
+    "faculty": "F13",
+    "day": "Thursday",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F13 on Friday: no classes",
+    "faculty": "F13",
+    "day": "Friday",
+    "source": "faculty_F13_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Monday P1: DSA (J)",
+    "faculty": "F14",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Monday P2: DSA (I)",
+    "faculty": "F14",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Monday: P1=DSA (J), P2=DSA (I)",
+    "faculty": "F14",
+    "day": "Monday",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Tuesday P1: DSA (I)",
+    "faculty": "F14",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Tuesday P2: DSA (J)",
+    "faculty": "F14",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Tuesday P3: AFLL (K)",
+    "faculty": "F14",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Tuesday P4: AFLL (L)",
+    "faculty": "F14",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Tuesday: P1=DSA (I), P2=DSA (J), P3=AFLL (K), P4=AFLL (L)",
+    "faculty": "F14",
+    "day": "Tuesday",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Wednesday P3: AFLL (K)",
+    "faculty": "F14",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Wednesday P4: AFLL (L)",
+    "faculty": "F14",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Wednesday: P3=AFLL (K), P4=AFLL (L)",
+    "faculty": "F14",
+    "day": "Wednesday",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Thursday P1: DSA (J)",
+    "faculty": "F14",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Thursday P2: DSA (I)",
+    "faculty": "F14",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Thursday P3: AFLL (K)",
+    "faculty": "F14",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Thursday P4: AFLL (L)",
+    "faculty": "F14",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Thursday P5: DSA LAB (F+I)",
+    "faculty": "F14",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Thursday P6: DSA LAB (F+I)",
+    "faculty": "F14",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Thursday: P1=DSA (J), P2=DSA (I), P3=AFLL (K), P4=AFLL (L), P5=DSA LAB (F+I), P6=DSA LAB (F+I)",
+    "faculty": "F14",
+    "day": "Thursday",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Friday P1: DSA (J)",
+    "faculty": "F14",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Friday P2: DSA (I)",
+    "faculty": "F14",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Friday P3: AFLL (K)",
+    "faculty": "F14",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Friday P4: AFLL (L)",
+    "faculty": "F14",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F14 on Friday: P1=DSA (J), P2=DSA (I), P3=AFLL (K), P4=AFLL (L)",
+    "faculty": "F14",
+    "day": "Friday",
+    "source": "faculty_F14_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Monday P3: DSA (L)",
+    "faculty": "F15",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Monday P4: DSA (K)",
+    "faculty": "F15",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Monday: P3=DSA (L), P4=DSA (K)",
+    "faculty": "F15",
+    "day": "Monday",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Tuesday P1: DSA (L)",
+    "faculty": "F15",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Tuesday P2: DSA (K)",
+    "faculty": "F15",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Tuesday: P1=DSA (L), P2=DSA (K)",
+    "faculty": "F15",
+    "day": "Tuesday",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Wednesday P3: DSA (L)",
+    "faculty": "F15",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Wednesday P4: DSA (K)",
+    "faculty": "F15",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Wednesday: P3=DSA (L), P4=DSA (K)",
+    "faculty": "F15",
+    "day": "Wednesday",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Thursday P5: DSA LAB (G+L)",
+    "faculty": "F15",
+    "day": "Thursday",
+    "period": "P5",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Thursday P6: DSA LAB (G+L)",
+    "faculty": "F15",
+    "day": "Thursday",
+    "period": "P6",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Thursday: P5=DSA LAB (G+L), P6=DSA LAB (G+L)",
+    "faculty": "F15",
+    "day": "Thursday",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Friday P1: DSA (L)",
+    "faculty": "F15",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Friday P2: DSA (K)",
+    "faculty": "F15",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F15 on Friday: P1=DSA (L), P2=DSA (K)",
+    "faculty": "F15",
+    "day": "Friday",
+    "source": "faculty_F15_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Monday P1: MATH (G)",
+    "faculty": "F16",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Monday P2: MATH (H)",
+    "faculty": "F16",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Monday P3: MATH (I)",
+    "faculty": "F16",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Monday P4: AFLL (B)",
+    "faculty": "F16",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Monday: P1=MATH (G), P2=MATH (H), P3=MATH (I), P4=AFLL (B)",
+    "faculty": "F16",
+    "day": "Monday",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Tuesday P3: AFLL (B)",
+    "faculty": "F16",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Tuesday: P3=AFLL (B)",
+    "faculty": "F16",
+    "day": "Tuesday",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Wednesday P2: MATH (I)",
+    "faculty": "F16",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Wednesday P3: MATH (H)",
+    "faculty": "F16",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Wednesday P4: MATH (G)",
+    "faculty": "F16",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Wednesday: P2=MATH (I), P3=MATH (H), P4=MATH (G)",
+    "faculty": "F16",
+    "day": "Wednesday",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Thursday P1: MATH (I)",
+    "faculty": "F16",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Thursday P2: MATH (G)",
+    "faculty": "F16",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Thursday P3: MATH (H)",
+    "faculty": "F16",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Thursday P4: AFLL (B)",
+    "faculty": "F16",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Thursday: P1=MATH (I), P2=MATH (G), P3=MATH (H), P4=AFLL (B)",
+    "faculty": "F16",
+    "day": "Thursday",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Friday P1: MATH (I)",
+    "faculty": "F16",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Friday P2: MATH (H)",
+    "faculty": "F16",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Friday P3: MATH (G)",
+    "faculty": "F16",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Friday P4: AFLL (B)",
+    "faculty": "F16",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F16 on Friday: P1=MATH (I), P2=MATH (H), P3=MATH (G), P4=AFLL (B)",
+    "faculty": "F16",
+    "day": "Friday",
+    "source": "faculty_F16_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Monday P1: AFLL (D)",
+    "faculty": "F17",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Monday P3: MATH (K)",
+    "faculty": "F17",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Monday P4: MATH (L)",
+    "faculty": "F17",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Monday: P1=AFLL (D), P3=MATH (K), P4=MATH (L)",
+    "faculty": "F17",
+    "day": "Monday",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Tuesday P1: MATH (K)",
+    "faculty": "F17",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Tuesday P2: MATH (L)",
+    "faculty": "F17",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Tuesday P3: MATH (J)",
+    "faculty": "F17",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Tuesday P4: AFLL (D)",
+    "faculty": "F17",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Tuesday: P1=MATH (K), P2=MATH (L), P3=MATH (J), P4=AFLL (D)",
+    "faculty": "F17",
+    "day": "Tuesday",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Wednesday P1: MATH (J)",
+    "faculty": "F17",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Wednesday P3: AFLL (D)",
+    "faculty": "F17",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Wednesday: P1=MATH (J), P3=AFLL (D)",
+    "faculty": "F17",
+    "day": "Wednesday",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Thursday P2: MATH (J)",
+    "faculty": "F17",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Thursday P3: MATH (L)",
+    "faculty": "F17",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Thursday P4: MATH (K)",
+    "faculty": "F17",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Thursday: P2=MATH (J), P3=MATH (L), P4=MATH (K)",
+    "faculty": "F17",
+    "day": "Thursday",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Friday P1: AFLL (D)",
+    "faculty": "F17",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Friday P2: MATH (J)",
+    "faculty": "F17",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Friday P3: MATH (L)",
+    "faculty": "F17",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Friday P4: MATH (K)",
+    "faculty": "F17",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F17 on Friday: P1=AFLL (D), P2=MATH (J), P3=MATH (L), P4=MATH (K)",
+    "faculty": "F17",
+    "day": "Friday",
+    "source": "faculty_F17_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Monday P1: AFLL (F)",
+    "faculty": "F18",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Monday P3: WT (D)",
+    "faculty": "F18",
+    "day": "Monday",
+    "period": "P3",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Monday P4: WT (E)",
+    "faculty": "F18",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Monday: P1=AFLL (F), P3=WT (D), P4=WT (E)",
+    "faculty": "F18",
+    "day": "Monday",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Tuesday P1: WT (D)",
+    "faculty": "F18",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Tuesday P2: WT (F)",
+    "faculty": "F18",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Tuesday P3: WT (E)",
+    "faculty": "F18",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Tuesday P4: AFLL (F)",
+    "faculty": "F18",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Tuesday: P1=WT (D), P2=WT (F), P3=WT (E), P4=AFLL (F)",
+    "faculty": "F18",
+    "day": "Tuesday",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Wednesday P3: WT (E)",
+    "faculty": "F18",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Wednesday P4: WT (F)",
+    "faculty": "F18",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Wednesday: P3=WT (E), P4=WT (F)",
+    "faculty": "F18",
+    "day": "Wednesday",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Thursday P1: WT (D)",
+    "faculty": "F18",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Thursday P2: WT (F)",
+    "faculty": "F18",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Thursday P4: AFLL (F)",
+    "faculty": "F18",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Thursday: P1=WT (D), P2=WT (F), P4=AFLL (F)",
+    "faculty": "F18",
+    "day": "Thursday",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Friday P1: AFLL (F)",
+    "faculty": "F18",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Friday P2: WT (D)",
+    "faculty": "F18",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Friday P3: WT (E)",
+    "faculty": "F18",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Friday P4: WT (F)",
+    "faculty": "F18",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F18 on Friday: P1=AFLL (F), P2=WT (D), P3=WT (E), P4=WT (F)",
+    "faculty": "F18",
+    "day": "Friday",
+    "source": "faculty_F18_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Monday P4: AFLL (H)",
+    "faculty": "F19",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Monday: P4=AFLL (H)",
+    "faculty": "F19",
+    "day": "Monday",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Tuesday P1: AFLL (H)",
+    "faculty": "F19",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Tuesday P2: WT (G)",
+    "faculty": "F19",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Tuesday P3: WT (H)",
+    "faculty": "F19",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Tuesday P4: WT (I)",
+    "faculty": "F19",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Tuesday: P1=AFLL (H), P2=WT (G), P3=WT (H), P4=WT (I)",
+    "faculty": "F19",
+    "day": "Tuesday",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Wednesday P1: WT (H)",
+    "faculty": "F19",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Wednesday P2: WT (G)",
+    "faculty": "F19",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Wednesday P4: WT (I)",
+    "faculty": "F19",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Wednesday: P1=WT (H), P2=WT (G), P4=WT (I)",
+    "faculty": "F19",
+    "day": "Wednesday",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Thursday P1: AFLL (H)",
+    "faculty": "F19",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Thursday P2: WT (H)",
+    "faculty": "F19",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Thursday P3: WT (G)",
+    "faculty": "F19",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Thursday P4: WT (I)",
+    "faculty": "F19",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Thursday: P1=AFLL (H), P2=WT (H), P3=WT (G), P4=WT (I)",
+    "faculty": "F19",
+    "day": "Thursday",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Friday P1: AFLL (H)",
+    "faculty": "F19",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Friday P2: WT (G)",
+    "faculty": "F19",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Friday P3: WT (I)",
+    "faculty": "F19",
+    "day": "Friday",
+    "period": "P3",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Friday P4: WT (H)",
+    "faculty": "F19",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F19 on Friday: P1=AFLL (H), P2=WT (G), P3=WT (I), P4=WT (H)",
+    "faculty": "F19",
+    "day": "Friday",
+    "source": "faculty_F19_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Monday P1: WT (L)",
+    "faculty": "F20",
+    "day": "Monday",
+    "period": "P1",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Monday P2: WT (K)",
+    "faculty": "F20",
+    "day": "Monday",
+    "period": "P2",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Monday P4: WT (J)",
+    "faculty": "F20",
+    "day": "Monday",
+    "period": "P4",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Monday: P1=WT (L), P2=WT (K), P4=WT (J)",
+    "faculty": "F20",
+    "day": "Monday",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Tuesday: no classes",
+    "faculty": "F20",
+    "day": "Tuesday",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Wednesday P1: WT (K)",
+    "faculty": "F20",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Wednesday P2: WT (L)",
+    "faculty": "F20",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Wednesday P3: WT (J)",
+    "faculty": "F20",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Wednesday: P1=WT (K), P2=WT (L), P3=WT (J)",
+    "faculty": "F20",
+    "day": "Wednesday",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Thursday P1: WT (K)",
+    "faculty": "F20",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Thursday P2: WT (L)",
+    "faculty": "F20",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Thursday P3: WT (J)",
+    "faculty": "F20",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Thursday: P1=WT (K), P2=WT (L), P3=WT (J)",
+    "faculty": "F20",
+    "day": "Thursday",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Friday P1: WT (K)",
+    "faculty": "F20",
+    "day": "Friday",
+    "period": "P1",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Friday P2: WT (L)",
+    "faculty": "F20",
+    "day": "Friday",
+    "period": "P2",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Friday P4: WT (J)",
+    "faculty": "F20",
+    "day": "Friday",
+    "period": "P4",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Faculty F20 on Friday: P1=WT (K), P2=WT (L), P4=WT (J)",
+    "faculty": "F20",
+    "day": "Friday",
+    "source": "faculty_F20_timetable.csv"
+  },
+  {
+    "text": "Room availability on Friday P1: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A AFLL); G07 (Sec B MATH); G08 (Sec C AFLL); G09 (Sec D AFLL); 101 (Sec E DSA); 102 (Sec F AFLL)",
+    "day": "Friday",
+    "period": "P1",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Friday P2: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A MATH); G07 (Sec B DSA); G08 (Sec C WT); G09 (Sec D WT); 101 (Sec E MATH); 102 (Sec F DSA)",
+    "day": "Friday",
+    "period": "P2",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Friday P3: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A DSA); G07 (Sec B WT); G08 (Sec C MATH); G09 (Sec D DDCO); 101 (Sec E WT); 102 (Sec F MATH)",
+    "day": "Friday",
+    "period": "P3",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Friday P4: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A WT); G07 (Sec B AFLL); G08 (Sec C DDCO); G09 (Sec D MATH); 101 (Sec E AFLL); 102 (Sec F WT)",
+    "day": "Friday",
+    "period": "P4",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Monday P1: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A DSA); G07 (Sec B MATH); G08 (Sec C DDCO); G09 (Sec D AFLL); 101 (Sec E DDCO); 102 (Sec F AFLL)",
+    "day": "Monday",
+    "period": "P1",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Monday P2: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A AFLL); G07 (Sec B DSA); G08 (Sec C MATH); G09 (Sec D DDCO); 101 (Sec E MATH); 102 (Sec F DDCO)",
+    "day": "Monday",
+    "period": "P2",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Monday P3: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A MATH); G07 (Sec B DDCO); G08 (Sec C DSA); G09 (Sec D WT); 101 (Sec E DSA); 102 (Sec F MATH)",
+    "day": "Monday",
+    "period": "P3",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Monday P4: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A DDCO); G07 (Sec B AFLL); G08 (Sec C AFLL); G09 (Sec D DSA); 101 (Sec E WT); 102 (Sec F DSA)",
+    "day": "Monday",
+    "period": "P4",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Thursday P1: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A MATH); G07 (Sec B DDCO); G08 (Sec C WT); G09 (Sec D WT); 101 (Sec E AFLL); 102 (Sec F DDCO)",
+    "day": "Thursday",
+    "period": "P1",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Thursday P2: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A DDCO); G07 (Sec B WT); G08 (Sec C MATH); G09 (Sec D MATH); 101 (Sec E DDCO); 102 (Sec F WT)",
+    "day": "Thursday",
+    "period": "P2",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Thursday P3: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A WT); G07 (Sec B MATH); G08 (Sec C DDCO); G09 (Sec D DSA); 101 (Sec E MATH); 102 (Sec F DSA)",
+    "day": "Thursday",
+    "period": "P3",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Thursday P4: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A AFLL); G07 (Sec B AFLL); G08 (Sec C DSA); G09 (Sec D DDCO); 101 (Sec E DSA); 102 (Sec F AFLL)",
+    "day": "Thursday",
+    "period": "P4",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Tuesday P1: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A DSA); G07 (Sec B DDCO); G08 (Sec C AFLL); G09 (Sec D WT); 101 (Sec E AFLL); 102 (Sec F MATH)",
+    "day": "Tuesday",
+    "period": "P1",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Tuesday P2: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A DDCO); G07 (Sec B DSA); G08 (Sec C WT); G09 (Sec D DSA); 101 (Sec E MATH); 102 (Sec F WT)",
+    "day": "Tuesday",
+    "period": "P2",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Tuesday P3: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A WT); G07 (Sec B AFLL); G08 (Sec C DSA); G09 (Sec D MATH); 101 (Sec E WT); 102 (Sec F DDCO)",
+    "day": "Tuesday",
+    "period": "P3",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Tuesday P4: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A AFLL); G07 (Sec B WT); G08 (Sec C MATH); G09 (Sec D AFLL); 101 (Sec E DDCO); 102 (Sec F AFLL)",
+    "day": "Tuesday",
+    "period": "P4",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Wednesday P1: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A WT); G07 (Sec B DDCO); G08 (Sec C DDCO); G09 (Sec D DSA); 101 (Sec E DDCO); 102 (Sec F DSA)",
+    "day": "Wednesday",
+    "period": "P1",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Wednesday P2: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A DDCO); G07 (Sec B WT); G08 (Sec C DSA); G09 (Sec D DDCO); 101 (Sec E DSA); 102 (Sec F DDCO)",
+    "day": "Wednesday",
+    "period": "P2",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Wednesday P3: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A DSA); G07 (Sec B MATH); G08 (Sec C WT); G09 (Sec D AFLL); 101 (Sec E WT); 102 (Sec F MATH)",
+    "day": "Wednesday",
+    "period": "P3",
+    "source": "room_assignment.csv"
+  },
+  {
+    "text": "Room availability on Wednesday P4: 2 free classrooms (203, 204); 12 occupied \u2014 G06 (Sec A MATH); G07 (Sec B DSA); G08 (Sec C AFLL); G09 (Sec D MATH); 101 (Sec E AFLL); 102 (Sec F WT)",
+    "day": "Wednesday",
+    "period": "P4",
+    "source": "room_assignment.csv"
+  }
+]

@@ -22,22 +22,46 @@ def _read_csv(path: Path) -> list:
 
 
 def build_system_prompt(
-    outputs_dir: Path,
-    data_dir: Path,
+    outputs_dir: Path = None,
+    data_dir: Path = None,
     summary_text: Optional[str] = None,
+    sem_id: Optional[str] = None,
 ) -> str:
     """
     Builds a compact system prompt under 800 tokens.
     Full data is accessed via tools, not injected into prompt.
+
+    Parameters
+    ----------
+    sem_id : str or None
+        Semester slug (e.g. "cse_sem5").  If given, data is loaded from
+        the correct semester directory.  If None, falls back to the
+        explicit data_dir/outputs_dir arguments (legacy behaviour).
     """
+    # ── Resolve data_dir from sem_id if provided ──────────────────────────────
+    if sem_id is not None:
+        from config import get_sem_paths
+        paths = get_sem_paths(sem_id)
+        data_dir   = paths.data_dir
+        outputs_dir = paths.output_dir
+        sem_label  = sem_id.replace("_", " ").title()
+    else:
+        # Legacy: use whatever was passed in, fall back to config defaults
+        if data_dir is None:
+            data_dir = config.DATA_DIR
+        if outputs_dir is None:
+            outputs_dir = config.OUTPUT_DIR
+        sem_label = "CSE · 3rd Semester (legacy)"
+
     courses = _read_csv(data_dir / "courses.csv")
     faculty = _read_csv(data_dir / "faculty.csv")
-    labs = _read_csv(data_dir / "lab_allotment.csv")
+    labs    = _read_csv(data_dir / "lab_allotment.csv")
 
-    # Compact course list — just code + name
+    # Compact course list — just code + name (skip electives to save tokens)
     course_lines = [
         f"{c['course_code']}: {c['course_name']}"
         for c in courses
+        if str(c.get("is_elective", "False")).strip().lower() not in ("true", "1", "yes")
     ]
 
     # Compact faculty list — just ID + name + designation initial
@@ -45,6 +69,9 @@ def build_system_prompt(
         "Professor": "Prof",
         "Associate Professor": "Asso",
         "Assistant Professor": "Asst",
+        "Prof": "Prof",
+        "Asso Prof": "Asso",
+        "Asst Prof": "Asst",
     }
     faculty_lines = [
         f"{f['faculty_id']}: {f['name']} "
@@ -58,7 +85,7 @@ def build_system_prompt(
         for l in labs
     ]
 
-    return f"""University timetable system — CSE Dept, 3rd Semester.
+    return f"""University timetable system — {sem_label}.
 Sections: A-L (12 total). Periods: P1-P4 theory, P5-P6 labs.
 Days: Monday-Friday.
 

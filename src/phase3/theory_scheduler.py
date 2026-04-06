@@ -30,6 +30,10 @@ from config import (
     REWARD_CONSECUTIVENESS,
     CONSECUTIVENESS_TIME_LIMIT,
     get_theory_periods,
+    PENALTY_PREF_TIME,
+    PENALTY_PREF_NO_BTB,
+    PENALTY_PREF_FREE_DAY,
+    PENALTY_ROOM_OVERCAP,
 )
 from src.phase1.assignment_builder import build_assignment_map
 from src.phase2.lab_scheduler import lock_labs
@@ -44,6 +48,12 @@ def _is_lab_token(value):
 def _initials(name):
     tokens = [t.strip(".") for t in str(name).split() if t and t.lower() != "prof."]
     return "".join(t[0].upper() for t in tokens[:3]) if tokens else "NA"
+
+
+def _as_bool(value):
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"true", "1", "yes", "y"}
 
 
 def _print_section_grid(section_grid, section="A"):
@@ -190,23 +200,95 @@ def _build_solver(max_time_seconds, workers):
     return solver
 
 
+def _extract_room_assignment_map(
+    room_assigned: dict,
+    solver,
+    room_id_to_name: dict,
+) -> dict:
+    """
+    Extract room assignments from the CP-SAT solution.
+
+    Returns
+    -------
+    dict : (section, day, period) -> room_name
+    """
+    result = {}
+    for (section, day, period, rid), var in room_assigned.items():
+        if solver.Value(var) == 1:
+            result[(section, day, period)] = room_id_to_name.get(rid, rid)
+    return result
+
+
 def solve_theory(
     assignment_map=None,
     section_grid=None,
     faculty_grid=None,
     room_grid=None,
     lab_details=None,
+    elective_details=None,
+    elective_slots=None,
     data_dir=DATA_DIR,
+    rooms_df=None,
 ):
     courses_df = pd.read_csv(f"{data_dir}/courses.csv")
     faculty_df = pd.read_csv(f"{data_dir}/faculty.csv")
 
+    # ── Load faculty preferences (graceful: missing columns → defaults) ───────
+    faculty_prefs = {}
+    for _, frow in faculty_df.iterrows():
+        fid = str(frow["faculty_id"]).strip()
+        faculty_prefs[fid] = {
+            "pref_time":          str(frow.get("pref_time", "none") or "none").strip().lower()
+                                  if "pref_time" in faculty_df.columns else "none",
+            "pref_no_backtoback": _as_bool(frow.get("pref_no_backtoback", False))
+                                  if "pref_no_backtoback" in faculty_df.columns else False,
+            "pref_no_teaching_day": str(frow.get("pref_no_teaching_day", "none") or "none").strip()
+                                    if "pref_no_teaching_day" in faculty_df.columns else "none",
+        }
+
+    if "is_elective" not in courses_df.columns:
+        courses_df["is_elective"] = False
+    else:
+        courses_df["is_elective"] = courses_df["is_elective"].map(_as_bool)
+
     if assignment_map is None:
         assignment_map = build_assignment_map(data_dir=data_dir)
-    if section_grid is None or faculty_grid is None or room_grid is None or lab_details is None:
-        section_grid, faculty_grid, room_grid, lab_details = lock_labs(data_dir=data_dir)
+    if (
+        section_grid is None
+        or faculty_grid is None
+        or room_grid is None
+        or lab_details is None
+        or elective_details is None
+    ):
+        section_grid, faculty_grid, room_grid, lab_details, elective_details = lock_labs(
+            data_dir=data_dir
+        )
+
+    # ── Pre-lock elective slots (defense-in-depth — Phase 2 fills the grid) ──
+    if elective_slots is not None and not elective_slots.empty:
+        for _, erow in elective_slots.iterrows():
+            day = str(erow["day"]).strip()
+            sections = [s.strip() for s in str(erow["enrolled_sections"]).split(",")]
+            p_start = int(erow["period_start"])
+            p_end = int(erow["period_end"])
+            course_code = str(erow["course_code"]).strip()
+            faculty_id = str(erow["faculty_id"]).strip()
+            for section in sections:
+                if section not in SECTIONS:
+                    continue
+                for p in range(p_start, p_end + 1):
+                    if section_grid[section][day][p] is None:
+                        section_grid[section][day][p] = course_code
+                    if faculty_id in faculty_grid and faculty_grid[faculty_id][day][p] is None:
+                        faculty_grid[faculty_id][day][p] = course_code
 
     course_codes = courses_df["course_code"].tolist()
+    elective_course_codes = set(
+        courses_df[courses_df["is_elective"] == True]["course_code"].tolist()
+    )
+    scheduled_course_codes = [
+        course for course in course_codes if course not in elective_course_codes
+    ]
     theory_periods_map = {}
     for _, course_row in courses_df.iterrows():
         course_code = course_row["course_code"]
@@ -214,15 +296,30 @@ def solve_theory(
         has_lab = course_row["has_lab"]
         theory_periods_map[course_code] = get_theory_periods(credits, has_lab)
 
-    total_theory = sum(theory_periods_map.values())
+    total_theory = sum(theory_periods_map[course] for course in scheduled_course_codes)
     base_daily_target = total_theory // len(DAYS)
     extra_days = total_theory % len(DAYS)
     daily_targets = {
         day: base_daily_target + (1 if day_idx < extra_days else 0)
         for day_idx, day in enumerate(DAYS)
     }
+
+    # Per-(section, day) free-slot targets: count P1-P4 slots not yet locked
+    # in section_grid (by labs or electives). The solver must fill exactly this
+    # many slots so that every free theory period is occupied.
+    # Computed here, after all pre-locking is complete.
+    section_day_targets: dict = {
+        (sec, day): sum(
+            1 for p in THEORY_PERIODS
+            if section_grid[sec][day][p] is None
+        )
+        for sec in SECTIONS
+        for day in DAYS
+    }
     faculty_ids = faculty_df["faculty_id"].tolist()
-    faculty_course_sections = _faculty_course_sections(assignment_map)
+    faculty_course_sections = _faculty_course_sections(
+        {course: assignment_map.get(course, {}) for course in scheduled_course_codes}
+    )
 
     section_lab_days = {section: set() for section in SECTIONS}
     for detail in lab_details:
@@ -232,8 +329,8 @@ def solve_theory(
     model = cp_model.CpModel()
     x = {}
 
-    for section in SECTIONS:
-        for course in course_codes:
+    for course in scheduled_course_codes:
+        for section in sorted(assignment_map.get(course, {})):
             for day in DAYS:
                 for period in PERIODS:
                     if section_grid[section][day][period] is not None:
@@ -245,7 +342,7 @@ def solve_theory(
                     )
 
     for section in SECTIONS:
-        for course in course_codes:
+        for course in scheduled_course_codes:
             vars_for_course = [
                 x[(section, course, day, period)]
                 for day in DAYS
@@ -259,7 +356,7 @@ def solve_theory(
             for period in PERIODS:
                 vars_in_slot = [
                     x[(section, course, day, period)]
-                    for course in course_codes
+                    for course in scheduled_course_codes
                     if (section, course, day, period) in x
                 ]
                 if vars_in_slot:
@@ -269,8 +366,8 @@ def solve_theory(
         for day in DAYS:
             for period in PERIODS:
                 vars_for_faculty = []
-                for course in course_codes:
-                    for section, assigned_faculty in assignment_map[course].items():
+                for course in scheduled_course_codes:
+                    for section, assigned_faculty in assignment_map.get(course, {}).items():
                         if assigned_faculty != faculty_id:
                             continue
                         key = (section, course, day, period)
@@ -288,8 +385,8 @@ def solve_theory(
     faculty_designation = dict(zip(faculty_df["faculty_id"], faculty_df["designation"]))
     for faculty_id in faculty_ids:
         all_faculty_vars = []
-        for course in course_codes:
-            for section, assigned_faculty in assignment_map[course].items():
+        for course in scheduled_course_codes:
+            for section, assigned_faculty in assignment_map.get(course, {}).items():
                 if assigned_faculty != faculty_id:
                     continue
                 for day in DAYS:
@@ -325,24 +422,44 @@ def solve_theory(
 
                 slot_vars = [
                     x[(section, course, day, period)]
-                    for course in course_codes
+                    for course in scheduled_course_codes
                     if (section, course, day, period) in x
                 ]
                 if slot_vars:
                     model.Add(sum(slot_vars) >= used)
-                    model.Add(sum(slot_vars) <= len(course_codes) * used)
+                    model.Add(sum(slot_vars) <= len(scheduled_course_codes) * used)
                 else:
                     model.Add(used == 0)
 
-            # NOTE: Monotonic constraint removed — was forcing is_used[p] >= is_used[p+1]
-            # which made P5/P6 empty. Now P5-P6 are lab slots, so this is no longer needed.
+            # ── Hard compactness: no gap between solver-assigned theory slots ──
+            # Skip any pair where p_next is pre-locked (elective or lab);
+            # its is_used=0 regardless, so a monotonicity constraint on it
+            # would either be vacuous or wrongly force p_curr == 1.
+            for idx in range(len(THEORY_PERIODS) - 1):
+                p_curr = THEORY_PERIODS[idx]
+                p_next = THEORY_PERIODS[idx + 1]
+                # If p_next is pre-locked, skip this pair entirely.
+                if section_grid[section][day][p_next] is not None:
+                    continue
+                curr_locked = section_grid[section][day][p_curr] is not None
+                if curr_locked:
+                    pass  # p_curr always occupied, p_next free — unconstrained
+                else:
+                    # Both free — enforce occupied(p_curr) >= occupied(p_next)
+                    model.Add(
+                        is_used[(section, day, p_curr)]
+                        >= is_used[(section, day, p_next)]
+                    )
 
             dcount = model.NewIntVar(0, len(THEORY_PERIODS), f"daily_count_{section}_{day}")
             model.Add(
                 dcount
                 == sum(is_used[(section, day, period)] for period in THEORY_PERIODS)
             )
-            model.Add(dcount == daily_targets[day])
+            # Use per-(section, day) target: exactly the number of free P1-P4
+            # slots remaining after all pre-locks.  Guarantees every free
+            # theory slot is filled without over-committing locked periods.
+            model.Add(dcount == section_day_targets[(section, day)])
             daily_count[(section, day)] = dcount
 
             for p2 in range(2, len(THEORY_PERIODS) + 1):  # P2 to P4
@@ -375,7 +492,7 @@ def solve_theory(
                 penalty_terms.append(gv * PENALTY_GAP)
 
     for section in SECTIONS:
-        for course in course_codes:
+        for course in scheduled_course_codes:
             for day in DAYS:
                 day_vars = [
                     x[(section, course, day, period)]
@@ -435,14 +552,182 @@ def solve_theory(
         for day in DAYS:
             if day in section_lab_days[section]:
                 continue
-            for course in course_codes:
+            for course in scheduled_course_codes:
                 for period in LAB_PERIODS:
                     key = (section, course, day, period)
                     if key in x:
                         penalty_terms.append(x[key] * PENALTY_LAB_WINDOW)
 
+    # ── A. Faculty time preference (morning=P1-P2, afternoon=P3-P4) ───────────
+    # TODO pref_time: temporarily disabled — causes morning bunching when
+    # electives pre-lock P3-P4, leaving only P1-P2 for theory on some days.
+    # _MORNING_PERIODS    = {1, 2}   # P1, P2
+    # _AFTERNOON_PERIODS  = {3, 4}   # P3, P4
+    # for faculty_id, prefs in faculty_prefs.items():
+    #     pt = prefs["pref_time"]
+    #     if pt not in ("morning", "afternoon"):
+    #         continue
+    #     bad_periods = _AFTERNOON_PERIODS if pt == "morning" else _MORNING_PERIODS
+    #     for course in scheduled_course_codes:
+    #         for section, assigned_fac in assignment_map.get(course, {}).items():
+    #             if assigned_fac != faculty_id:
+    #                 continue
+    #             for day in DAYS:
+    #                 for period in bad_periods:
+    #                     key = (section, course, day, period)
+    #                     if key in x:
+    #                         penalty_terms.append(x[key] * PENALTY_PREF_TIME)
+
+    # ── B. Faculty no-back-to-back preference ─────────────────────────────────
+    # PENALTY_PREF_NO_BTB=6 — penalise consecutive faculty slots on same day.
+    for faculty_id, prefs in faculty_prefs.items():
+        if not prefs["pref_no_backtoback"]:
+            continue
+        # Collect all x vars for this faculty across (section, course)
+        # keyed by (day, period)
+        fac_slot_vars: dict[tuple, list] = {}  # (day, period) -> list[BoolVar]
+        for course in scheduled_course_codes:
+            for section, assigned_fac in assignment_map.get(course, {}).items():
+                if assigned_fac != faculty_id:
+                    continue
+                for day in DAYS:
+                    for period in THEORY_PERIODS:
+                        key = (section, course, day, period)
+                        if key in x:
+                            dp_key = (day, period)
+                            fac_slot_vars.setdefault(dp_key, []).append(x[key])
+        # For each consecutive period pair on each day, penalise co-occupancy
+        for day in DAYS:
+            for p in range(THEORY_PERIODS[0], THEORY_PERIODS[-1]):  # P1-P3
+                vars_p  = fac_slot_vars.get((day, p), [])
+                vars_p1 = fac_slot_vars.get((day, p + 1), [])
+                if not vars_p or not vars_p1:
+                    continue
+                # used_p = 1 iff faculty has a slot at (day, p)
+                used_p  = model.NewBoolVar(f"fbtb_{faculty_id}_{day}_{p}")
+                used_p1 = model.NewBoolVar(f"fbtb_{faculty_id}_{day}_{p+1}")
+                model.Add(sum(vars_p)  >= used_p)
+                model.Add(sum(vars_p)  <= len(vars_p)  * used_p)
+                model.Add(sum(vars_p1) >= used_p1)
+                model.Add(sum(vars_p1) <= len(vars_p1) * used_p1)
+                btb_pair = model.NewBoolVar(f"fbtb_pair_{faculty_id}_{day}_{p}")
+                model.Add(btb_pair <= used_p)
+                model.Add(btb_pair <= used_p1)
+                model.Add(btb_pair >= used_p + used_p1 - 1)
+                penalty_terms.append(btb_pair * PENALTY_PREF_NO_BTB)
+
+    # ── C. Faculty preferred free-day penalty ─────────────────────────────────
+    # PENALTY_PREF_FREE_DAY=10 — penalise each slot taught on preferred free day.
+    for faculty_id, prefs in faculty_prefs.items():
+        free_day = prefs["pref_no_teaching_day"]
+        if free_day.lower() == "none" or free_day not in DAYS:
+            continue
+        for course in scheduled_course_codes:
+            for section, assigned_fac in assignment_map.get(course, {}).items():
+                if assigned_fac != faculty_id:
+                    continue
+                for period in THEORY_PERIODS:
+                    key = (section, course, free_day, period)
+                    if key in x:
+                        penalty_terms.append(x[key] * PENALTY_PREF_FREE_DAY)
+
+    # ── Room assignment inside CP-SAT ───────────────────────────────────────
+    # Only active when rooms_df is provided; if None → skip (legacy path).
+    room_assigned = {}          # (section, day, period, room_id) -> BoolVar
+    theory_room_ids = []        # room_id strings eligible for theory
+    room_cap = {}               # room_id -> capacity
+    room_id_to_name = {}        # room_id -> room_name (for output)
+    _room_vars_active = False
+
+    if rooms_df is not None:
+        # Filter to theory-eligible rooms only (CLASSROOM / LECTURE_HALL)
+        eligible = rooms_df[
+            rooms_df["room_type"].str.upper().isin(["CLASSROOM", "LECTURE_HALL"])
+        ].copy()
+        theory_room_ids = eligible["room_id"].astype(str).tolist()
+        room_cap        = dict(zip(eligible["room_id"].astype(str),
+                                   eligible["capacity"].astype(int)))
+        room_id_to_name = dict(zip(eligible["room_id"].astype(str),
+                                   eligible["room_name"].astype(str)))
+
+        if theory_room_ids:
+            _room_vars_active = True
+
+            # Build set of (room_name, day, period) pre-occupied by Phase 2
+            preoccupied_room_names: set[tuple] = set()
+            if room_grid:
+                for rname, day_map in room_grid.items():
+                    for day, period_map in day_map.items():
+                        for period, token in period_map.items():
+                            if token is not None:
+                                preoccupied_room_names.add((rname, day, period))
+
+            # Build reverse map room_name -> room_id for pre-occupation check
+            room_name_to_id = {v: k for k, v in room_id_to_name.items()}
+
+            # ASSUMPTION: section size = 60 (default; no enrollment data)
+            SECTION_SIZE = 60
+
+            for section in SECTIONS:
+                for day in DAYS:
+                    for period in THEORY_PERIODS:
+                        if (section, day, period) not in is_used:
+                            continue  # period not in theory window
+                        for rid in theory_room_ids:
+                            rname = room_id_to_name[rid]
+                            # Pre-lock: if room pre-occupied by Phase 2 fix it to 0
+                            if (rname, day, period) in preoccupied_room_names:
+                                # Room unavailable — don't create a decision var
+                                continue
+                            room_assigned[(section, day, period, rid)] = \
+                                model.NewBoolVar(f"ra_{section}_{day}_{period}_{rid}")
+
+            # Hard A: each occupied theory slot gets exactly one room
+            for section in SECTIONS:
+                for day in DAYS:
+                    for period in THEORY_PERIODS:
+                        if (section, day, period) not in is_used:
+                            continue
+                        slot_room_vars = [
+                            room_assigned[(section, day, period, rid)]
+                            for rid in theory_room_ids
+                            if (section, day, period, rid) in room_assigned
+                        ]
+                        used_var = is_used[(section, day, period)]
+                        if slot_room_vars:
+                            # occupied → exactly one room
+                            model.Add(sum(slot_room_vars) == 1).OnlyEnforceIf(used_var)
+                            # free → no room
+                            model.Add(sum(slot_room_vars) == 0).OnlyEnforceIf(used_var.Not())
+                        else:
+                            # no available rooms for this slot (all pre-occupied)
+                            # force slot to be free (shouldn't happen with 12 classrooms)
+                            model.Add(used_var == 0)
+
+            # Hard B: no two sections share a room in the same slot
+            for day in DAYS:
+                for period in THEORY_PERIODS:
+                    for rid in theory_room_ids:
+                        competing = [
+                            room_assigned[(s, day, period, rid)]
+                            for s in SECTIONS
+                            if (s, day, period, rid) in room_assigned
+                        ]
+                        if len(competing) > 1:
+                            model.Add(sum(competing) <= 1)
+
+            # Soft: penalise under-capacity room assignments
+            for (section, day, period, rid), var in room_assigned.items():
+                if room_cap.get(rid, SECTION_SIZE) < SECTION_SIZE:
+                    penalty_terms.append(var * PENALTY_ROOM_OVERCAP)
+
+            print(f"[Phase 3] Room vars added: "
+                  f"{len(theory_room_ids)} theory rooms ×"
+                  f" {len(SECTIONS)} sections × {len(THEORY_PERIODS)} periods")
+
+    # ── Solve penalty stage ──────────────────────────────────────────────────
     penalty_expr = sum(penalty_terms) if penalty_terms else 0
-    reward_expr = sum(reward_terms) if reward_terms else 0
+    reward_expr  = sum(reward_terms)  if reward_terms  else 0
 
     model.Minimize(penalty_expr)
     penalty_solver = _build_solver(max_time_seconds=PENALTY_STAGE_TIME, workers=NUM_WORKERS)
@@ -481,9 +766,9 @@ def solve_theory(
     # teaches 2+ theory slots for the SAME section on the SAME day.
     # We build this from the current solution to see where it might apply.
     same_sec_tuples = []
-    for course in course_codes:
+    for course in scheduled_course_codes:
         for section in SECTIONS:
-            faculty_id = assignment_map[course].get(section)
+            faculty_id = assignment_map.get(course, {}).get(section)
             if faculty_id is None:
                 continue
             for day in DAYS:
@@ -573,7 +858,7 @@ def solve_theory(
             faculty_grid[faculty_id][day][period] = f"{course} ({section})"
 
     for section in SECTIONS:
-        for course in course_codes:
+        for course in scheduled_course_codes:
             for day in DAYS:
                 count_for_day = sum(
                     1
@@ -599,7 +884,8 @@ def solve_theory(
     for section in SECTIONS:
         for day in DAYS:
             soft_counts["daily_load_imbalance"] += abs(
-                final_solver.Value(daily_count[(section, day)]) - daily_targets[day]
+                final_solver.Value(daily_count[(section, day)])
+                - section_day_targets[(section, day)]
             )
             for p2 in range(2, len(THEORY_PERIODS) + 1):
                 if final_solver.Value(gap_var[(section, day, p2)]) == 1:
@@ -627,6 +913,7 @@ def solve_theory(
         "room_grid": room_grid,
         "assignment_map": assignment_map,
         "lab_details": lab_details,
+        "elective_details": elective_details,
         "solver_status": status_name,
         "soft_violations": soft_counts,
         "consecutive_analysis": consecutive_stats,
@@ -634,6 +921,9 @@ def solve_theory(
         "optimal_penalty": best_penalty,
         "reward_stage_status": reward_status_name,
         "consecutiveness_phase": consecutiveness_phase,
+        "room_assignment_map": _extract_room_assignment_map(
+            room_assigned, final_solver, room_id_to_name
+        ) if _room_vars_active else {},
     }
 
 

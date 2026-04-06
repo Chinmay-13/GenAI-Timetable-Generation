@@ -44,8 +44,11 @@ from src.phase5.agent_ops import (
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _read_section_csv(section: str) -> str:
-    path = resolve_output_path(f"section_{section.strip().upper()}_timetable.csv")
+def _read_section_csv(section: str, output_dir=None) -> str:
+    if output_dir is not None:
+        path = Path(output_dir) / f"section_{section.strip().upper()}_timetable.csv"
+    else:
+        path = resolve_output_path(f"section_{section.strip().upper()}_timetable.csv")
     try:
         df = pd.read_csv(path)
         return df.to_string(index=False)
@@ -53,8 +56,11 @@ def _read_section_csv(section: str) -> str:
         return f"No timetable found for section {section}. Run run_all.py first."
 
 
-def _read_faculty_csv(faculty_id: str) -> str:
-    path = resolve_output_path(f"faculty_{faculty_id.strip().upper()}_timetable.csv")
+def _read_faculty_csv(faculty_id: str, output_dir=None) -> str:
+    if output_dir is not None:
+        path = Path(output_dir) / f"faculty_{faculty_id.strip().upper()}_timetable.csv"
+    else:
+        path = resolve_output_path(f"faculty_{faculty_id.strip().upper()}_timetable.csv")
     try:
         df = pd.read_csv(path)
         return df.to_string(index=False)
@@ -63,9 +69,13 @@ def _read_faculty_csv(faculty_id: str) -> str:
 
 
 def _is_faculty_free(faculty_id: str, day: str,
-                     period_start: int, period_end: int) -> bool:
+                     period_start: int, period_end: int,
+                     output_dir=None) -> bool:
     """Check if faculty has no bookings for the given period range on day."""
-    path = resolve_output_path(f"faculty_{faculty_id}_timetable.csv")
+    if output_dir is not None:
+        path = Path(output_dir) / f"faculty_{faculty_id}_timetable.csv"
+    else:
+        path = resolve_output_path(f"faculty_{faculty_id}_timetable.csv")
     if not path.exists():
         return False
     df = pd.read_csv(path)
@@ -130,7 +140,22 @@ def _load_rooms_inventory() -> pd.DataFrame:
 
 # ── LangChain Tools ──────────────────────────────────────────────────────────
 
-def _make_tools():
+def _make_tools(agent_output_dir=None, sem_id: str = None):
+    """
+    Build all LangChain tools.  If agent_output_dir is given all output reads
+    (section CSVs, faculty CSVs, room_assignment.csv, summary_report.txt) use
+    that directory instead of the legacy resolve_output_path().
+    sem_id is forwarded to write-path functions (commit_schedule_change, find_substitute)
+    so they operate on the correct semester's output tree.
+    """
+    _out = Path(agent_output_dir) if agent_output_dir else None
+
+    def _rop(filename: str) -> Path:
+        """Resolve an output file path, honouring the active semester dir."""
+        if _out is not None:
+            return _out / filename
+        return resolve_output_path(filename)
+
     try:
         from langchain.tools import tool
     except ImportError:
@@ -143,16 +168,18 @@ def _make_tools():
         Input: section letter (A through L)
         Returns: timetable as formatted text
         """
-        return _read_section_csv(section)
+        return _read_section_csv(section, output_dir=_out)
 
     @tool
     def get_faculty_schedule(faculty_id: str) -> str:
         """
         Get the full weekly schedule for a faculty member.
-        Input: faculty_id (e.g., F04)
-        Returns: schedule as formatted text
+        Input: faculty_id — the faculty ID string such as F01, F02, F03, F04, etc.
+               This is ALWAYS a faculty ID like F01, NEVER a section letter like A or B.
+               Example: faculty_id="F04"
+        Returns: full weekly schedule as formatted text
         """
-        return _read_faculty_csv(faculty_id)
+        return _read_faculty_csv(faculty_id, output_dir=_out)
 
     @tool
     def find_free_slots(faculty_id_and_day: str) -> str:
@@ -165,9 +192,7 @@ def _make_tools():
         if len(parts) != 2:
             return "Input must be 'faculty_id,day' e.g. 'F04,Monday'"
         faculty_id, day = parts
-        path = resolve_output_path(
-            f"faculty_{faculty_id.upper()}_timetable.csv"
-        )
+        path = _rop(f"faculty_{faculty_id.upper()}_timetable.csv")
         try:
             df = pd.read_csv(path)
             row = df[df["Day"].str.lower() == day.lower()]
@@ -190,7 +215,7 @@ def _make_tools():
         Input: any string (e.g., "faculty load", "violations", "theory slots")
         Returns: relevant stats from the summary report
         """
-        report_path = resolve_output_path("summary_report.txt")
+        report_path = _rop("summary_report.txt")
         try:
             return report_path.read_text(encoding="utf-8")
         except FileNotFoundError:
@@ -211,7 +236,7 @@ def _make_tools():
         faculty_id, day = parts
         try:
             from src.phase5.substitute import find_substitute as _find_sub
-            result = _find_sub(faculty_id, day)
+            result = _find_sub(faculty_id, day, sem_id=sem_id)
             lines = [f"Absent: {result.get('absent_faculty', faculty_id)} on {day}"]
             for sub in result.get("substitutions", []):
                 lines.append(
@@ -245,7 +270,7 @@ def _make_tools():
         p_start, p_end = int(p_start), int(p_end)
 
         # Validate substitute availability
-        if not _is_faculty_free(substitute, day, p_start, p_end):
+        if not _is_faculty_free(substitute, day, p_start, p_end, output_dir=_out):
             return (
                 f"Cannot commit: {substitute} is not free on {day} "
                 f"P{p_start}-P{p_end}."
@@ -263,7 +288,7 @@ def _make_tools():
                 "new_faculty":      substitute,
                 "change_type":      "substitute",
                 "reason":           reason,
-            })
+            }, sem_id=sem_id)
             return result["message"]
         except Exception as exc:
             return f"Commit failed (rolled back): {exc}"
@@ -357,7 +382,7 @@ def _make_tools():
             return "Error: provide faculty_id,day"
         fid, day = parts
 
-        path = resolve_output_path(f"faculty_{fid}_timetable.csv")
+        path = _rop(f"faculty_{fid}_timetable.csv")
         if not path or not Path(path).exists():
             return f"No timetable found for {fid}"
 
@@ -410,8 +435,7 @@ def _make_tools():
                 return f"Invalid capacity '{parts[2]}'. Must be an integer."
 
         # Load room assignment CSV
-        from config import OUTPUT_DIR, resolve_output_path
-        csv_path = resolve_output_path("room_assignment.csv")
+        csv_path = _rop("room_assignment.csv")
         if not csv_path.exists():
             return (
                 "room_assignment.csv not found. "
@@ -433,7 +457,7 @@ def _make_tools():
         occupied.discard("ROOM_UNASSIGNED")
 
         # All classrooms from rooms.csv
-        rooms_path = OUTPUT_DIR.parent / "data" / "rooms.csv"
+        rooms_path = _AGENT_ROOT / "data" / "rooms.csv"
         if not rooms_path.exists():
             rooms_path = resolve_output_path("..") / "data" / "rooms.csv"
         try:
@@ -564,7 +588,7 @@ def _make_tools():
             fid  = str(row["faculty_id"]).strip()
             name = str(row["name"]).strip()
             desig = str(row["designation"]).strip()
-            tpath = resolve_output_path(f"faculty_{fid}_timetable.csv")
+            tpath = _rop(f"faculty_{fid}_timetable.csv")
             if not tpath.exists():
                 continue
             try:
@@ -613,7 +637,7 @@ def _make_tools():
                 "Room assignment data is only generated for theory periods."
             )
 
-        ra_path = resolve_output_path("room_assignment.csv")
+        ra_path = _rop("room_assignment.csv")
         if not ra_path.exists():
             return "Room assignment data not found. Please run the pipeline first with: python run_all.py"
 
@@ -714,7 +738,7 @@ def _make_tools():
         room_slot: dict = {}
 
         for section in _SECTIONS:
-            sp = resolve_output_path(f"section_{section}_timetable.csv")
+            sp = _rop(f"section_{section}_timetable.csv")
             if not sp.exists():
                 continue
             try:
@@ -735,7 +759,7 @@ def _make_tools():
                         faculty_slot.setdefault(key, []).append(section)
 
         # Check room_assignment.csv for room conflicts
-        ra_path = resolve_output_path("room_assignment.csv")
+        ra_path = _rop("room_assignment.csv")
         if ra_path.exists():
             ra_df = _pd.read_csv(ra_path)
             for _, row in ra_df.iterrows():
@@ -775,7 +799,7 @@ def _make_tools():
         Returns: sections count, theory/lab slot totals, soft-constraint
                  violations, and a faculty load summary.
         """
-        report_path = resolve_output_path("summary_report.txt")
+        report_path = _rop("summary_report.txt")
         if not report_path.exists():
             return "summary_report.txt not found. Run run_all.py first."
         text = report_path.read_text(encoding="utf-8")
@@ -953,14 +977,11 @@ def _make_tools():
 
 # ── Agent creation ────────────────────────────────────────────────────────────
 
-def _get_agent_system_prompt() -> str:
+def _get_agent_system_prompt(sem_id: str = None) -> str:
     """Build system prompt for the agent."""
     try:
         from src.phase5.prompt_builder import build_system_prompt
-        base = build_system_prompt(
-            outputs_dir=config.OUTPUT_DIR,
-            data_dir=config.DATA_DIR,
-        )
+        base = build_system_prompt(sem_id=sem_id)
     except Exception:
         base = "University timetable assistant. CSE dept, 12 sections A-L."
 
@@ -1013,7 +1034,7 @@ RULES:
 """
 
 
-def create_timetable_agent():
+def create_timetable_agent(sem_id: str = None):
     """Create a tool-calling agent using bind_tools + manual ReAct loop."""
     if not config.GROQ_API_KEY:
         return None
@@ -1021,7 +1042,14 @@ def create_timetable_agent():
     from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
     from src.phase5.llm_wrapper import get_llm, safe_llm_call
 
-    tools = _make_tools()
+    # ── Resolve output directory once ─────────────────────────────────────────
+    if sem_id is not None:
+        from config import get_sem_paths as _gsp
+        agent_output_dir = _gsp(sem_id).output_dir
+    else:
+        agent_output_dir = None  # tools fall back to resolve_output_path()
+
+    tools = _make_tools(agent_output_dir=agent_output_dir, sem_id=sem_id)
     if tools is None:
         return None
 
@@ -1032,7 +1060,7 @@ def create_timetable_agent():
     def run_agent(input_dict: dict) -> dict:
         query = input_dict.get("input", "")
         messages = [
-            SystemMessage(content=_get_agent_system_prompt()),
+            SystemMessage(content=_get_agent_system_prompt(sem_id=sem_id)),
             HumanMessage(content=query),
         ]
         reasoning = []

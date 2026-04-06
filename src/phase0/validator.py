@@ -11,7 +11,18 @@ from config import DATA_DIR as CONFIG_DATA_DIR, TOTAL_SECTIONS, MAX_HOURS, LAB_B
 DATA_DIR = str(CONFIG_DATA_DIR)
 
 
-def validate(courses, faculty, assignments):
+def validate(courses, faculty, assignments, data_dir: str = None):
+    """
+    Validate timetable input data.
+
+    Parameters
+    ----------
+    courses, faculty, assignments : pd.DataFrame
+        Data already loaded from the correct semester directory.
+    data_dir : str or None
+        Path to the semester data directory used to locate lab_allotment.csv.
+        Falls back to the legacy DATA_DIR constant when None.
+    """
     print("\n=== PHASE 0: CAPACITY VALIDATION ===\n")
     all_ok = True
 
@@ -20,6 +31,9 @@ def validate(courses, faculty, assignments):
     for _, course in courses.iterrows():
         code = course["course_code"]
         name = course["course_name"][:40]
+        # Elective courses are by design assigned to fewer than TOTAL_SECTIONS
+        # (only the sections that chose that elective).  Require >= 1 instead.
+        is_elective = bool(course.get("is_elective", False))
         course_assignments = assignments[assignments["course_code"] == code]
 
         assigned_sections = []
@@ -27,10 +41,15 @@ def validate(courses, faculty, assignments):
             assigned_sections += [s.strip() for s in row["sections_handled"].split(",")]
 
         count = len(assigned_sections)
-        status = "OK" if count == TOTAL_SECTIONS else "MISMATCH"
+        if is_elective:
+            status = "OK" if count >= 1 else "MISMATCH"
+            tag = f"elective (assigned={count} sections)"
+        else:
+            status = "OK" if count == TOTAL_SECTIONS else "MISMATCH"
+            tag = f"assigned={count} | expected={TOTAL_SECTIONS}"
         if status != "OK":
             all_ok = False
-        print(f"  {status} | {code} | assigned={count} | expected={TOTAL_SECTIONS} | {name}")
+        print(f"  {status} | {code} | {tag} | {name}")
 
     # ── Check 2: No faculty assigned to more than 2 courses ───────────────
     print("\n[ Check 2 ] Faculty assigned to max 2 courses")
@@ -63,8 +82,10 @@ def validate(courses, faculty, assignments):
     # ── Check 4: Weekly hour load per faculty ─────────────────────────────
     print("\n[ Check 4 ] Weekly hour load per faculty")
     course_lookup = courses.set_index("course_code").to_dict("index")
+    # Use the semester-specific data_dir when provided; fall back to legacy DATA_DIR
+    _lab_dir = data_dir if data_dir is not None else DATA_DIR
     try:
-        lab_allotment = pd.read_csv(f"{DATA_DIR}/lab_allotment.csv")
+        lab_allotment = pd.read_csv(f"{_lab_dir}/lab_allotment.csv")
     except FileNotFoundError:
         lab_allotment = pd.DataFrame(
             columns=["day", "course_code", "section_pair", "room", "faculty_id"]

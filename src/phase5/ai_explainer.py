@@ -3,9 +3,16 @@ ai_explainer.py — Timetable AI explainer with RAG support.
 
 Uses dynamic prompt builder (no hardcoded facts),
 Groq LLM via safe wrapper with retry, and data-driven fallback.
+
+RAG Improvement #2: query decomposition for multi-hop questions.
+  _is_multihop()     — heuristic gate (no LLM cost for simple queries)
+  _decompose_query() — splits complex question into 2-4 sub-queries via LLM
+  explain_with_rag() — routes through decomposition when warranted
 """
 from pathlib import Path
 import sys
+import json
+import re
 import warnings
 from typing import Dict, List, Optional, Tuple
 
@@ -22,7 +29,7 @@ from config import resolve_output_path, SECTIONS
 from src.phase5.prompt_builder import build_system_prompt
 from src.phase5.llm_wrapper import get_llm, safe_llm_call
 
-_CONTEXT_CACHE: Optional[Dict] = None
+_CONTEXT_CACHE: dict = {}   # keyed by sem_id ("legacy" when sem_id is None)
 
 
 def _read_text(path: Path) -> str:
@@ -77,14 +84,26 @@ def load_actual_stats() -> dict:
     return stats
 
 
-def setup_context(force_reload: bool = False) -> Dict:
+def setup_context(force_reload: bool = False, sem_id: str = None) -> Dict:
     """Load all context needed for the AI layer."""
     global _CONTEXT_CACHE
-    if _CONTEXT_CACHE is not None and not force_reload:
-        return _CONTEXT_CACHE
+    cache_key = sem_id or "legacy"
+    if cache_key in _CONTEXT_CACHE and not force_reload:
+        return _CONTEXT_CACHE[cache_key]
 
-    summary_path = resolve_output_path("summary_report.txt")
-    section_a_path = resolve_output_path("section_A_timetable.csv")
+    if sem_id is not None:
+        from config import get_sem_paths
+        _paths = get_sem_paths(sem_id)
+        _data_dir   = _paths.data_dir
+        _output_dir = _paths.output_dir
+        from config import resolve_output_path as _rop
+        summary_path   = _output_dir / "summary_report.txt"
+        section_a_path = _output_dir / "section_A_timetable.csv"
+    else:
+        _data_dir   = config.DATA_DIR
+        _output_dir = config.OUTPUT_DIR
+        summary_path   = resolve_output_path("summary_report.txt")
+        section_a_path = resolve_output_path("section_A_timetable.csv")
 
     summary_report = _read_text(summary_path)
     section_a_csv = _read_text(section_a_path)
@@ -94,21 +113,22 @@ def setup_context(force_reload: bool = False) -> Dict:
         "summary_report": summary_report,
         "section_a_csv": section_a_csv,
         "section_a_csv_for_prompt": section_a_csv,
-        "faculty_csv": _read_text(config.DATA_DIR / "faculty.csv"),
-        "assignments_csv": _read_text(config.DATA_DIR / "assignments.csv"),
-        "courses_csv": _read_text(config.DATA_DIR / "courses.csv"),
+        "faculty_csv":      _read_text(_data_dir / "faculty.csv"),
+        "assignments_csv":  _read_text(_data_dir / "assignments.csv"),
+        "courses_csv":      _read_text(_data_dir / "courses.csv"),
         "faculty_load_table": _extract_faculty_load_table(summary_report),
         "section_a_df": section_a_df,
-        "lab_df": pd.read_csv(config.DATA_DIR / "lab_allotment.csv"),
+        "lab_df": pd.read_csv(_data_dir / "lab_allotment.csv"),
     }
 
     # Use dynamic prompt builder
     context["system_prompt"] = build_system_prompt(
-        outputs_dir=config.OUTPUT_DIR,
-        data_dir=config.DATA_DIR,
+        outputs_dir=_output_dir,
+        data_dir=_data_dir,
         summary_text=summary_report,
+        sem_id=sem_id,
     )
-    _CONTEXT_CACHE = context
+    _CONTEXT_CACHE[cache_key] = context
     return context
 
 
@@ -227,9 +247,10 @@ def _fallback_answer(user_question: str, context: Dict) -> str:
 
 
 def explain(user_question: str,
-            history: Optional[List[Tuple[str, str]]] = None) -> str:
+            history: Optional[List[Tuple[str, str]]] = None,
+            sem_id: str = None) -> str:
     """Answer a timetable question using Groq LLM with safe retry."""
-    context = setup_context()
+    context = setup_context(sem_id=sem_id)
     llm = _get_llm(context)
     if llm is None:
         return _fallback_answer(user_question, context)
@@ -268,12 +289,162 @@ def explain(user_question: str,
     return fallback if fallback.strip() else "Could not generate response. Please try again."
 
 
+# ── Multi-hop query decomposition ────────────────────────────────────────────
+
+# Patterns that strongly suggest a multi-hop question
+_MULTIHOP_WORDS = re.compile(
+    r"\b(when|where|which days|compare|both|all sections|all faculty|\b)"
+    r"(and|but)\b",
+    re.IGNORECASE,
+)
+_FACULTY_PAT = re.compile(r"\bF\d{2}\b")
+_SECTION_PAT = re.compile(r"\bsection\s+[A-La-l]\b", re.IGNORECASE)
+
+_DECOMPOSE_SYSTEM = """\
+You are a query decomposer for a university timetable retrieval system.
+Given a question, split it into simple sub-queries (max 4).
+Each sub-query must be answerable from a single timetable lookup.
+Return ONLY a JSON array of strings. No explanation. No markdown.
+Example input: "Which sections does F03 teach on days section A has labs?"
+Example output: ["What days does section A have labs?", "What does F03 teach and on which days?"]
+"""
+
+
+def _is_multihop(question: str) -> bool:
+    """
+    Heuristic gate — returns True only when the question is genuinely
+    multi-hop so we don't burn an LLM call on simple queries.
+
+    Rules (ANY one sufficient):
+    1. Contains both a section reference AND a faculty ID.
+    2. Contains a multi-hop keyword (when/where/which days/compare/both/
+       all sections/all faculty) AND a conjunction (and/but).
+    3. Contains two or more distinct section references.
+    4. Contains a faculty ID AND words like "which sections" or "all sections".
+    """
+    has_faculty  = bool(_FACULTY_PAT.search(question))
+    sections     = _SECTION_PAT.findall(question)
+    has_section  = len(sections) >= 1
+    multi_section = len(set(s.upper() for s in sections)) >= 2
+
+    ql = question.lower()
+
+    # Rule 1: both section + faculty → almost always cross-entity
+    if has_faculty and has_section:
+        return True
+
+    # Rule 2: multi-hop keywords + conjunction
+    multihop_kw = any(kw in ql for kw in (
+        "which days", "compare", "both", "all sections",
+        "all faculty", "when does", "where does",
+    ))
+    has_conjunction = bool(re.search(r"\b(and|but)\b", ql))
+    if multihop_kw and has_conjunction:
+        return True
+
+    # Rule 3: two distinct sections
+    if multi_section:
+        return True
+
+    # Rule 4: faculty + "sections" (e.g. "which sections does F03 teach")
+    if has_faculty and "section" in ql:
+        return True
+
+    return False
+
+
+def _decompose_query(question: str, sem_id: str = None) -> list[str]:
+    """
+    Ask the LLM to split `question` into 2-4 simple sub-queries.
+
+    Returns a list of sub-query strings, or raises on failure so the
+    caller can fall back to single-query retrieval.
+    """
+    if not config.GROQ_API_KEY:
+        raise RuntimeError("No GROQ_API_KEY — cannot decompose")
+
+    llm = get_llm()   # temp llm instance; no context needed for decomposition
+    prompt = (
+        f"{_DECOMPOSE_SYSTEM}\n"
+        f"Question: {question}\n"
+        f"JSON array:"
+    )
+    response = safe_llm_call(llm, prompt)
+    raw = getattr(response, "content", None) or str(response)
+
+    # Strip markdown fences if the LLM wraps the JSON
+    raw = re.sub(r"```[\w]*", "", raw).strip()
+
+    sub_queries = json.loads(raw)          # raises json.JSONDecodeError on bad output
+    if not isinstance(sub_queries, list) or not sub_queries:
+        raise ValueError(f"Unexpected decomposition output: {raw!r}")
+
+    # Sanitise: keep only non-empty strings, cap at 4
+    sub_queries = [str(q).strip() for q in sub_queries if str(q).strip()][:4]
+    return sub_queries
+
+
 def explain_with_rag(user_question: str,
-                     history: Optional[List[Tuple[str, str]]] = None) -> str:
-    """Use RAG to retrieve relevant timetable context, then call explain()."""
+                     history: Optional[List[Tuple[str, str]]] = None,
+                     sem_id: str = None) -> str:
+    """
+    Use RAG to retrieve relevant timetable context, then call explain().
+
+    Routing logic
+    -------------
+    Simple query  → retrieve(k=5) → explain()          [unchanged path]
+    Multi-hop     → _decompose_query() → retrieve(k=3)
+                    per sub-query → merge + dedup → explain()
+    Any failure   → fall back to single-query path, then bare explain()
+    """
+    import logging
+    _log = logging.getLogger(__name__)
+
     try:
         from src.phase5.rag_indexer import retrieve
-        relevant = retrieve(user_question, k=5)
+
+        if _is_multihop(user_question):
+            # ── Multi-hop path ────────────────────────────────────────────────
+            try:
+                sub_queries = _decompose_query(user_question, sem_id=sem_id)
+                _log.info("[RAG] Decomposed into %d sub-queries: %s",
+                          len(sub_queries), sub_queries)
+
+                seen_texts: set[str] = set()
+                merged: list[dict] = []
+
+                for sq in sub_queries:
+                    for doc in retrieve(sq, k=3, sem_id=sem_id):
+                        if doc["text"] not in seen_texts:
+                            seen_texts.add(doc["text"])
+                            merged.append(doc)
+
+                # Cap at 10 docs to stay within prompt token budget
+                merged = merged[:10]
+
+                if merged:
+                    context_lines = [r["text"] for r in merged]
+                    citations = list({r["source"] for r in merged})
+                    augmented_question = (
+                        f"Context from timetable data:\n"
+                        + "\n".join(context_lines)
+                        + f"\n\nQuestion: {user_question}"
+                        + f"\n\nSources: {', '.join(citations)}"
+                    )
+                    return explain(augmented_question, history=history,
+                                  sem_id=sem_id)
+
+            except Exception as decomp_err:
+                # Graceful fallback — log and continue to single-query path
+                _log.warning(
+                    "[RAG] Decomposition failed (%s). "
+                    "Falling back to single-query retrieval.",
+                    decomp_err,
+                )
+                # fall through ↓
+
+        # ── Simple (or fallback) path — identical to original behaviour ───────
+        relevant = retrieve(user_question, k=5, sem_id=sem_id)
         if relevant:
             context_lines = [r["text"] for r in relevant]
             citations = list({r["source"] for r in relevant})
@@ -283,10 +454,12 @@ def explain_with_rag(user_question: str,
                 + f"\n\nQuestion: {user_question}"
                 + f"\n\nSources: {', '.join(citations)}"
             )
-            return explain(augmented_question, history=history)
+            return explain(augmented_question, history=history, sem_id=sem_id)
+
     except Exception:
         pass
-    return explain(user_question, history=history)
+
+    return explain(user_question, history=history, sem_id=sem_id)
 
 
 def detect_issues() -> str:

@@ -1,0 +1,16 @@
+course_code,course_name,short_name,credits,theory_hours,lab_hours,has_lab,semester,department,elective_group,is_elective
+UE24CS551A,Machine Learning Foundations,ML,5,4,2,True,5,CSE,none,False
+UE24CS552A,Database Systems and Design,DBMS,5,4,2,True,5,CSE,none,False
+UE24CS542A,Computer Architecture,CA,4,4,0,False,5,CSE,none,False
+UE24CS561A,Cloud Computing,CC,4,4,0,False,5,CSE,E1,True
+UE24CS562A,Cyber Security,CYS,4,4,0,False,5,CSE,E1,True
+UE24CS563A,Natural Language Processing,NLP,4,4,0,False,5,CSE,E1,True
+UE24CS564A,Computer Vision,CV,4,4,0,False,5,CSE,E1,True
+UE24CS565A,Internet of Things,IoT,4,4,0,False,5,CSE,E1,True
+UE24CS566A,Blockchain Technology,BCT,4,4,0,False,5,CSE,E1,True
+UE24CS571A,Data Mining,DM,4,4,0,False,5,CSE,E2,True
+UE24CS572A,Parallel Computing,PC,4,4,0,False,5,CSE,E2,True
+UE24CS573A,Information Retrieval,IR,4,4,0,False,5,CSE,E2,True
+UE24CS574A,Embedded Systems,ES,4,4,0,False,5,CSE,E2,True
+UE24CS575A,Compiler Design,CD,4,4,0,False,5,CSE,E2,True
+UE24CS576A,Game Theory and Algorithms,GTA,4,4,0,False,5,CSE,E2,True

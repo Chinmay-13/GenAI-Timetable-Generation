@@ -41,13 +41,14 @@ def lab_result(assignment_map):
 
 @pytest.fixture(scope="module")
 def theory_result(assignment_map, lab_result):
-    section_grid, faculty_grid, room_grid, lab_details = lab_result
+    section_grid, faculty_grid, room_grid, lab_details, elective_details = lab_result
     return solve_theory(
         assignment_map=assignment_map,
         section_grid=section_grid,
         faculty_grid=faculty_grid,
         room_grid=room_grid,
         lab_details=lab_details,
+        elective_details=elective_details,
     )
 
 
@@ -98,7 +99,7 @@ def test_no_prof_on_lab_course(data):
 
 def test_lab_slots_locked(lab_result):
     """Section A must have DDCO lab locked on Monday P5-P6."""
-    section_grid, faculty_grid, room_grid, lab_details = lab_result
+    section_grid, faculty_grid, room_grid, lab_details, elective_details = lab_result
     assert "A" in section_grid, "Section A missing from section_grid"
     for p in [5, 6]:
         val = section_grid["A"]["Monday"][p]
@@ -108,7 +109,7 @@ def test_lab_slots_locked(lab_result):
 
 def test_no_lab_conflicts(lab_result):
     """No section should be double-booked in lab slots."""
-    section_grid, faculty_grid, room_grid, lab_details = lab_result
+    section_grid, faculty_grid, room_grid, lab_details, elective_details = lab_result
     for section, days in section_grid.items():
         for day, periods in days.items():
             occupied = [p for p, v in periods.items() if v is not None]
@@ -119,7 +120,7 @@ def test_no_lab_conflicts(lab_result):
 
 def test_no_faculty_lab_conflicts(lab_result):
     """No faculty should be double-booked in lab slots."""
-    section_grid, faculty_grid, room_grid, lab_details = lab_result
+    section_grid, faculty_grid, room_grid, lab_details, elective_details = lab_result
     for fid, days in faculty_grid.items():
         for day, periods in days.items():
             seen = {}

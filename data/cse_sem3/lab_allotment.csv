@@ -1,0 +1,13 @@
+day,course_code,section_pair,room,faculty_id
+Monday,UE24CS351A,"A,D",Lab_Room_1,F04
+Monday,UE24CS351A,"B,J",Lab_Room_2,F05
+Monday,UE24CS351A,"C,L",Lab_Room_3,F06
+Monday,UE24CS351A,"E,I",Lab_Room_4,F07
+Monday,UE24CS351A,"F,H",Lab_Room_5,F08
+Monday,UE24CS351A,"G,K",Lab_Room_6,F09
+Thursday,UE24CS352A,"A,B",Lab_Room_1,F10
+Thursday,UE24CS352A,"C,J",Lab_Room_2,F11
+Thursday,UE24CS352A,"H,K",Lab_Room_3,F12
+Thursday,UE24CS352A,"E,D",Lab_Room_4,F13
+Thursday,UE24CS352A,"F,I",Lab_Room_5,F14
+Thursday,UE24CS352A,"G,L",Lab_Room_6,F15
