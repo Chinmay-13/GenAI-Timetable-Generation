@@ -73,6 +73,10 @@ def _init_state():
         st.session_state.current_page = "Dashboard"
     if "_agent_confirm" not in st.session_state:
         st.session_state._agent_confirm = False
+    if "_agent_pending_instruction" not in st.session_state:
+        st.session_state._agent_pending_instruction = None
+    if "_agent_confirm_triggered" not in st.session_state:
+        st.session_state._agent_confirm_triggered = False
 
 
 _init_state()
@@ -1102,6 +1106,27 @@ def _render_ai_agent():
     sem_paths = get_sem_paths(sem_id)
     out = sem_paths.output_dir
 
+    # ── Handle pending confirmation (must run before any UI rendering) ─────────
+    if st.session_state.get("_agent_confirm") and st.session_state.get("_agent_pending_instruction"):
+        st.session_state._agent_confirm = False
+        confirm_instruction = (
+            st.session_state._agent_pending_instruction
+            + "\n\nYes, proceed and commit the change."
+        )
+        st.session_state._agent_pending_instruction = None
+        with st.spinner("Agent committing change…"):
+            try:
+                from src.phase5.agent import create_timetable_agent
+                agent = create_timetable_agent(sem_id=sem_id)
+                if agent:
+                    result = agent({"input": confirm_instruction})
+                    st.session_state.agent_output = result.get("output", "")
+                    st.cache_data.clear()  # refresh timetable displays
+            except Exception as e:
+                st.warning("⚠️ Commit failed. Check timetable generation.")
+                with st.expander("Technical detail"):
+                    st.code(str(e))
+
     st.title("🤖 AI Agent")
 
     if not out.exists():
@@ -1142,16 +1167,9 @@ def _render_ai_agent():
         key="agent_instruction",
     )
 
-    # ── Build effective instruction (append confirmation if needed) ──────────
-    effective_instruction = instruction
-    if st.session_state._agent_confirm:
-        effective_instruction = instruction + "\n\nYes, proceed and commit the substitution."
-        st.session_state._agent_confirm = False
-
-    if st.button("▶ Run Agent", type="primary") or (
-        st.session_state.get("_agent_confirm_triggered", False)
-    ):
-        st.session_state["_agent_confirm_triggered"] = False
+    if st.button("▶ Run Agent", type="primary"):
+        # Store instruction before running so confirmation can replay it
+        st.session_state._agent_pending_instruction = instruction
         with st.spinner("Agent working…"):
             try:
                 from src.phase5.agent import create_timetable_agent
@@ -1197,14 +1215,16 @@ def _render_ai_agent():
                             type="primary",
                             key="agent_confirm_yes",
                         ):
+                            # Store the instruction NOW (before rerun wipes widget state)
+                            st.session_state._agent_pending_instruction = instruction
                             st.session_state._agent_confirm = True
-                            st.session_state["_agent_confirm_triggered"] = True
                             st.rerun()
                         if col_no.button(
                             "❌ No, cancel",
                             key="agent_confirm_no",
                         ):
                             st.info("Change cancelled.")
+                            st.session_state._agent_pending_instruction = None
                             st.session_state.agent_output = ""
 
             except Exception as e:
