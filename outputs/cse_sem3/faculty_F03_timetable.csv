@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,----,SE (A),SE (B),SE (C),----,----
-Tuesday,----,SE (B),SE (A),SE (C),----,----
-Wednesday,----,SE (A),SE (C),SE (B),----,----
-Thursday,SE (C),SE (B),SE (A),----,----,----
-Friday,----,----,----,----,----,----
+Monday,----,----,----,----,----,----
+Tuesday,SE (C),SE (A),SE (B),----,----,----
+Wednesday,SE (C),SE (B),SE (A),----,----,----
+Thursday,----,SE (B),SE (C),SE (A),----,----
+Friday,----,SE (A),SE (B),SE (C),----,----

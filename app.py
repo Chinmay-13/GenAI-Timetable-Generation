@@ -86,6 +86,10 @@ def _init_state():
         st.session_state._agent_preview_dir = None
     if "_agent_preview_op_id" not in st.session_state:
         st.session_state._agent_preview_op_id = None
+    if "_agent_substitute_commit_day" not in st.session_state:
+        st.session_state._agent_substitute_commit_day = None
+    if "_agent_substitute_commit_dir" not in st.session_state:
+        st.session_state._agent_substitute_commit_dir = None
     if "_last_agent_wrote" not in st.session_state:
         st.session_state._last_agent_wrote = False
     if "_agent_session_started_at" not in st.session_state:
@@ -1319,6 +1323,8 @@ def _render_ai_agent():
                 from src.phase5.sync_manager import commit_from_preview
                 result = commit_from_preview(op_id, sem_id=sem_id)
                 st.session_state.agent_output    = result["message"]
+                st.session_state._agent_substitute_commit_day = result.get("day")
+                st.session_state._agent_substitute_commit_dir = result.get("substitute_dir")
                 st.session_state._last_agent_wrote = True
                 st.cache_data.clear()
             except Exception as e:
@@ -1388,6 +1394,8 @@ def _render_ai_agent():
         st.session_state._agent_pending_instruction = instruction
         st.session_state.agent_output = ""
         st.session_state.agent_steps = []
+        st.session_state._agent_substitute_commit_day = None
+        st.session_state._agent_substitute_commit_dir = None
         with st.spinner("Agent working…"):
             try:
                 from src.phase5.agent import create_timetable_agent
@@ -1524,6 +1532,12 @@ def _render_ai_agent():
 
     elif st.session_state.agent_output:
         _render_agent_response(st.session_state.agent_output)
+        if st.session_state.get("_agent_substitute_commit_day"):
+            _sub_day = st.session_state._agent_substitute_commit_day
+            st.info(
+                f"✅ Substitute timetable saved to substitutes/{_sub_day}/. "
+                "Original timetable unchanged."
+            )
         _render_agent_tool_flow(st.session_state.agent_steps)
 
     # ── Recent operations panel ───────────────────────────────────────────────
@@ -1552,7 +1566,7 @@ def _render_ai_agent():
                         if c2.button("↩ Rollback", key=f"rb_{op_id}"):
                             try:
                                 from src.phase5.agent_ops import rollback_operation
-                                msg = rollback_operation(op_id)
+                                msg = rollback_operation(op_id, sem_id=sem_id)
                                 st.success(msg)
                                 st.cache_data.clear()
                             except Exception as e:

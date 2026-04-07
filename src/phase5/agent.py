@@ -10,7 +10,7 @@ The agent has READ and WRITE capabilities:
     - find_substitute         : substitute suggestions for absent faculty
 
   WRITE tools:
-    - commit_substitute       : commit a substitute assignment to timetable
+    - commit_substitute       : create a substitute preview for UI confirmation
     - list_agent_ops          : list recent agent operations
     - rollback_last_operation : rollback a committed substitution
     - generate_session_summary: generate session summary report
@@ -153,6 +153,147 @@ def _summarize_text(value, max_len: int = 100) -> str:
     text = value if isinstance(value, str) else _safe_json_dumps(value)
     text = re.sub(r"\s+", " ", text).strip()
     return text if len(text) <= max_len else text[:max_len - 3] + "..."
+
+
+def _parse_absent_periods_result(result: str) -> list[str]:
+    periods = re.findall(r"^\s*(P[1-6])\s*:", str(result), flags=re.MULTILINE)
+    return list(dict.fromkeys(periods))
+
+
+MAX_TOOL_RESULT_CHARS = 300
+
+
+def _truncate_tool_history(text: str, max_chars: int = MAX_TOOL_RESULT_CHARS) -> str:
+    compact = re.sub(r"\s+", " ", str(text)).strip()
+    if len(compact) <= max_chars:
+        return compact
+    return compact[:max_chars - 3] + "..."
+
+
+def _compact_substitute_candidates_for_history(result: str) -> str:
+    lines = [line.strip() for line in str(result).splitlines() if line.strip()]
+    kept: list[str] = []
+    for line in lines:
+        if line.startswith("[SIMULATION]"):
+            kept.append(line)
+        elif line.startswith("#1"):
+            kept.append(line)
+            break
+    if not kept:
+        kept = lines[:2]
+    return "\n".join(kept)
+
+
+def _compact_find_substitute_for_history(result: str) -> str:
+    lines = [line.strip() for line in str(result).splitlines() if line.strip()]
+    kept = [
+        line for line in lines
+        if line.startswith("Absent:") or "->" in line or "→" in line
+    ]
+    return "\n".join(kept or lines[:4])
+
+
+def _compact_tool_result_for_history(tool_name: str, result) -> str:
+    text = str(result)
+    if tool_name == "get_substitute_candidates":
+        text = _compact_substitute_candidates_for_history(text)
+    elif tool_name == "find_substitute":
+        text = _compact_find_substitute_for_history(text)
+    elif tool_name == "get_faculty_schedule":
+        text = text[:MAX_TOOL_RESULT_CHARS]
+    return _truncate_tool_history(text)
+
+
+def _periods_from_commit_args(args) -> list[str]:
+    if not isinstance(args, dict):
+        return []
+    try:
+        p_start = int(args.get("period_start", args.get("p_start", 0)))
+        p_end = int(args.get("period_end", args.get("p_end", p_start)))
+    except (TypeError, ValueError):
+        return []
+    return [f"P{p}" for p in range(p_start, p_end + 1) if 1 <= p <= 6]
+
+
+def _extract_sections_from_faculty_cell(cell: object) -> list[str]:
+    text = str(cell).strip()
+    if not text or text in {"----", "", "nan"}:
+        return []
+
+    groups = re.findall(r"\(([^()]+)\)", text)
+    for token in reversed(groups):
+        sections = [part.strip().upper() for part in token.split("+") if part.strip()]
+        if sections and all(section in SECTIONS for section in sections):
+            return sections
+    return []
+
+
+def _derive_target_section_for_absence(
+    faculty_id: str,
+    day: str,
+    period_start: int,
+    period_end: int,
+    *,
+    requested_section: str = "",
+    output_dir=None,
+) -> tuple[str | None, str | None]:
+    fid = faculty_id.strip().upper()
+    day_norm = _normalize_day_input(day) or str(day).strip()
+    if output_dir is not None:
+        path = Path(output_dir) / f"faculty_{fid}_timetable.csv"
+    else:
+        path = resolve_output_path(f"faculty_{fid}_timetable.csv")
+    if not path.exists():
+        return None, f"No timetable found for {fid}."
+
+    df = pd.read_csv(path)
+    row = df[df["Day"].astype(str).str.strip().str.lower() == day_norm.lower()]
+    if row.empty:
+        return None, f"No schedule found for {fid} on {day_norm}."
+    row = row.iloc[0]
+
+    per_period_sections: dict[str, list[str]] = {}
+    missing_periods: list[str] = []
+    multi_section_periods: list[str] = []
+
+    for p in range(period_start, period_end + 1):
+        col = f"P{p}"
+        sections = _extract_sections_from_faculty_cell(row.get(col, "----"))
+        if not sections:
+            missing_periods.append(col)
+            continue
+        per_period_sections[col] = sections
+        if len(sections) > 1:
+            multi_section_periods.append(f"{col} ({'+'.join(sections)})")
+
+    if missing_periods:
+        return None, (
+            f"Cannot create preview: {fid} is not scheduled on {day_norm} "
+            f"{', '.join(missing_periods)}."
+        )
+
+    if multi_section_periods:
+        return None, (
+            "Cannot create preview: combined-section slots are not supported by "
+            f"commit_substitute yet ({'; '.join(multi_section_periods)})."
+        )
+
+    resolved_sections = sorted({sections[0] for sections in per_period_sections.values()})
+    if len(resolved_sections) != 1:
+        return None, (
+            "Cannot create preview: the requested range spans multiple sections "
+            f"for {fid} on {day_norm}: {', '.join(resolved_sections)}."
+        )
+
+    resolved_section = resolved_sections[0]
+    requested = str(requested_section or "").strip().upper()
+    if requested and requested != resolved_section:
+        return resolved_section, (
+            f"Resolved section {resolved_section} from {fid}'s timetable; "
+            f"ignored requested section {requested}."
+        )
+
+    return resolved_section, None
 
 
 def _parse_timestamp(value) -> datetime | None:
@@ -353,7 +494,7 @@ def _make_tools(agent_output_dir=None, sem_id: str = None,
         reason: str,
     ) -> str:
         """
-        Commit a substitute teacher assignment to the timetable.
+        Create a substitute assignment preview.
         section: Section letter, e.g. 'A', 'B', 'C'.
         day: Day of the week, e.g. 'Monday', 'Tuesday'.
         period_start: Starting period number (integer), e.g. 1, 5.
@@ -362,9 +503,12 @@ def _make_tools(agent_output_dir=None, sem_id: str = None,
         substitute_faculty: Faculty ID who will substitute, e.g. 'F07'.
         reason: Short reason text, e.g. 'Lab coverage for DDCO'.
         On the FIRST call this writes a preview to a temp folder and returns
-        a diff summary — no live files are changed yet.
+        a diff summary - no canonical timetable files are changed.
+        During a full absence flow, the agent loop finalizes each preview into
+        outputs/<sem_id>/substitutes/<day>/substitute_notice.txt before moving
+        to the next uncovered period.
         If a preview already exists, returns immediately with a message to
-        call apply_pending_preview to finalise (do not re-write).
+        confirm it in the UI or discard it before creating a new one.
         Validates substitute availability before writing.
         """
         from src.phase5.sync_manager import get_active_preview, preview_schedule_change
@@ -374,7 +518,7 @@ def _make_tools(agent_output_dir=None, sem_id: str = None,
         if existing:
             return (
                 f"A preview already exists (op_id={existing['op_id']}). "
-                "Call apply_pending_preview to finalise, "
+                "Ask the user to confirm it in the UI, "
                 "or discard_pending_preview to cancel before creating a new one."
             )
 
@@ -382,6 +526,18 @@ def _make_tools(agent_output_dir=None, sem_id: str = None,
         p_end    = int(period_end)
         absent   = absent_faculty.strip().upper()
         substitute = substitute_faculty.strip().upper()
+        resolved_section, section_note = _derive_target_section_for_absence(
+            absent,
+            day,
+            p_start,
+            p_end,
+            requested_section=section,
+            output_dir=_out,
+        )
+        if resolved_section is None:
+            return section_note or (
+                f"Cannot create preview for {absent} on {day} P{p_start}-P{p_end}."
+            )
 
         # Validate substitute availability
         if not _is_faculty_free(substitute, day, p_start, p_end, output_dir=_out):
@@ -392,7 +548,7 @@ def _make_tools(agent_output_dir=None, sem_id: str = None,
 
         try:
             result = preview_schedule_change({
-                "section":          section,
+                "section":          resolved_section,
                 "day":              day,
                 "period_start":     p_start,
                 "period_end":       p_end,
@@ -401,11 +557,12 @@ def _make_tools(agent_output_dir=None, sem_id: str = None,
                 "change_type":      "substitute",
                 "reason":           reason,
             }, sem_id=sem_id)
+            prefix = f"{section_note}\n" if section_note else ""
             return (
-                f"{result['diff_summary']}\n\n"
+                f"{prefix}{result['diff_summary']}\n\n"
                 f"{result['message']}\n"
                 "Present this preview to the user and ask them to confirm "
-                "before calling apply_pending_preview."
+                "in the UI. Do not auto-commit."
             )
         except Exception as exc:
             return f"Preview generation failed: {exc}"
@@ -509,10 +666,11 @@ def _make_tools(agent_output_dir=None, sem_id: str = None,
     @tool
     def apply_pending_preview(input_str: str) -> str:
         """
-        Finalise a pending substitute preview by promoting temp files to live outputs.
+        Finalise a pending substitute preview by writing substitute overlay files.
         Call this ONLY after the user has explicitly confirmed the proposed change.
-        Input: any string (ignored) — the active preview is detected automatically.
-        Rebuilds faculty CSVs, summary report, and RAG index after committing.
+        Input: any string (ignored) - the active preview is detected automatically.
+        Writes outputs/<sem_id>/substitutes/<day>/ and leaves canonical
+        timetable CSVs unchanged.
         """
         from src.phase5.sync_manager import get_active_preview, commit_from_preview
         meta = get_active_preview(sem_id)
@@ -1025,7 +1183,7 @@ def _make_tools(agent_output_dir=None, sem_id: str = None,
         try:
             from src.phase5.substitute import (
                 _rank_candidates, _collect_absent_slots, _sections_for_faculty,
-                get_faculty_day_row, faculty_lookup, normalize_day,
+                faculty_lookup, normalize_day,
                 get_lab_block_periods, parse_timetable_cell,
             )
         except ImportError as exc:
@@ -1050,18 +1208,37 @@ def _make_tools(agent_output_dir=None, sem_id: str = None,
             absent_info     = lookup[fid_upper]
             absent_sections = _sections_for_faculty(fid_upper, _dat_d)
 
-            # Get the slot info for the requested period
-            day_row = get_faculty_day_row(fid_upper, day_norm, _out_d)
-            cell    = str(day_row.get(period_col, "----")).strip()
-            if cell in ("----", "", "nan"):
-                return (
-                    f"{fid_upper} has no class on {day_norm} {period_col}. "
-                    "Nothing to simulate."
+            # Trust the period already confirmed by get_absent_periods.
+            # Read the live faculty CSV directly first so this stays consistent
+            # with get_absent_periods rather than relying only on cached helpers.
+            slot_info = None
+            fac_path = _rop(f"faculty_{fid_upper}_timetable.csv")
+            if fac_path and Path(fac_path).exists():
+                df = pd.read_csv(fac_path)
+                row = df[
+                    df["Day"].astype(str).str.strip().str.lower() == day_norm.lower()
+                ]
+                if not row.empty:
+                    cell = str(row.iloc[0].get(period_col, "----")).strip()
+                    parsed = parse_timetable_cell(cell)
+                    if parsed is not None:
+                        slot_info = parsed
+
+            if slot_info is None:
+                absent_slots = _collect_absent_slots(fid_upper, day_norm, _out_d)
+                slot_info = next(
+                    (
+                        slot for slot in absent_slots
+                        if str(slot.get("period", "")).strip().upper() == period_col
+                    ),
+                    None,
                 )
 
-            slot_info = parse_timetable_cell(cell)
             if slot_info is None:
-                return f"Could not parse slot '{cell}' for {fid_upper} on {day_norm} {period_col}."
+                return (
+                    f"No class data available for {fid_upper} on {day_norm} {period_col}. "
+                    "Use find_substitute(faculty_id, day) as fallback."
+                )
 
             # Expand to lab block if needed
             block  = get_lab_block_periods(period_col)
@@ -1133,7 +1310,6 @@ def _make_tools(agent_output_dir=None, sem_id: str = None,
         list_agent_ops,
         rollback_last_operation,
         generate_session_summary,
-        apply_pending_preview,
         discard_pending_preview,
         get_absent_periods,
         find_free_rooms,
@@ -1165,8 +1341,9 @@ You are a professional timetable management assistant for CSE department
 college admin staff. You are accurate, concise, and helpful.
 
 WHAT YOU CAN READ:
-  • Section timetables (A–L)  — get_section_timetable
-  • Faculty schedules          — get_faculty_schedule, get_absent_periods
+  • Section timetables (A-L)  - get_section_timetable
+  • Faculty schedules          - get_faculty_schedule for general schedule questions;
+                                 get_absent_periods for absence handling
   • Schedule quality / loads   — get_summary_stats, get_faculty_workload
   • System health / files      — get_system_status
   • Free slots per faculty     — find_free_slots
@@ -1190,22 +1367,33 @@ WHAT YOU CANNOT DO:
   • Access data outside the outputs/ and data/ directories
 
 ABSENCE HANDLING — follow this exact order:
-  1. get_absent_periods(faculty_id, day)         → confirm actual periods taught
-  2. get_substitute_candidates(faculty_id, day, Pn)
-                                                → show ranked candidates per period
-  3. commit_substitute(section, day, p_start, p_end, absent_fac, top_candidate, reason)
-                                                 → writes a PREVIEW (temp folder only,
-                                                   no live files changed yet)
-                                                 → return the diff summary to the user
-  4. Ask user to confirm by clicking the Confirm button in the UI.
-     Once confirmed, apply_pending_preview() will be called automatically.
-     Do NOT call apply_pending_preview yourself — the UI button handles it.
-  5. After confirmation, call generate_session_summary() to log the session.
+  Step 1: Call get_absent_periods(faculty_id, day) — this returns ALL
+          periods the faculty teaches that day.
+          Never call get_faculty_schedule before get_absent_periods —
+          get_absent_periods is always the first step.
+  Step 2: For EACH period returned, call get_substitute_candidates to get
+          the best available substitute.
+  Step 3: Call commit_substitute for EACH period separately, one by one,
+          using the top candidate for that period.
+  Step 4: Only stop when every period from Step 1 has been covered.
+          Never stop after the first period. Never skip a period.
+  Step 5: After every period is covered, call generate_session_summary()
+          to log the session.
 
 RULES:
   • NEVER guess period numbers — always call get_absent_periods first
+  • After calling get_absent_periods, store the exact list of occupied periods
+    returned. Call get_substitute_candidates ONLY for those periods. Never call
+    it for any other period.
+  • Never call get_faculty_schedule during absence handling. It returns the full
+    week and bloats context; get_absent_periods gives the exact day data needed.
+  • NEVER guess section IDs for commit_substitute. The target section must come
+    from the absent faculty's actual timetable slot, not from LLM inference.
   • After get_substitute_candidates, proceed to commit_substitute only when you
-    have enough information to create a safe preview for the user to review
+    have enough information to create a safe substitute notice entry
+  • If get_substitute_candidates returns "no class" or empty for a period that
+    get_absent_periods already confirmed, do NOT retry the same call. Call
+    find_substitute(faculty_id, day) directly as fallback and use those results.
   • Use find_substitute only when the user explicitly wants a full-day substitute plan
     across all absent periods rather than a per-slot candidate ranking
   • Use get_summary_stats for schedule quality, overload, violation, and slot-count questions
@@ -1213,7 +1401,9 @@ RULES:
   • Use find_free_rooms when the user asks "which rooms are free at slot X"
   • Use get_room_availability when the user asks whether a specific room is free or occupied
   • Use detect_schedule_conflicts first for any conflict-checking question
-  • Do NOT call apply_pending_preview yourself — the UI button handles that step
+  • Do NOT call apply_pending_preview yourself under any circumstance.
+    The agent runtime finalizes each substitute notice before moving to the next
+    uncovered period.
   • Do not call discard_pending_preview unless the user explicitly asks to cancel the preview
   • Lab periods P5–P6 must always be substituted as an atomic block
   • Always state when you are simulating vs writing a preview vs committing
@@ -1260,8 +1450,57 @@ def create_timetable_agent(sem_id: str = None,
         ]
         reasoning = []
         steps: list[dict] = []
+        absence_state = {
+            "faculty_id": None,
+            "day": None,
+            "periods": [],
+            "covered": set(),
+            "commit_messages": [],
+        }
 
-        for step in range(8):
+        def _remaining_absence_periods() -> list[str]:
+            return [
+                period for period in absence_state["periods"]
+                if period not in absence_state["covered"]
+            ]
+
+        def _record_runtime_step(tool_name: str, tool_input, tool_result, status: str = "ok") -> None:
+            step_record = {
+                "step_num": len(steps) + 1,
+                "tool_name": tool_name,
+                "tool_input": _safe_json_dumps(tool_input),
+                "tool_result": str(tool_result),
+                "status": status,
+            }
+            steps.append(step_record)
+            reasoning.append(
+                f"Step {step_record['step_num']}: {tool_name}("
+                f"{_summarize_text(step_record['tool_input'])})"
+            )
+            if callable(step_callback):
+                try:
+                    step_callback(steps)
+                except Exception:
+                    pass
+
+        def _append_tool_message(tool_call_id: str, tool_name: str, tool_result) -> None:
+            messages.append(ToolMessage(
+                content=_compact_tool_result_for_history(tool_name, tool_result),
+                tool_call_id=tool_call_id,
+            ))
+
+        def _is_absence_query() -> bool:
+            q = query.lower()
+            explicit_period = bool(re.search(r"\bp\s*[1-6]\b|\bperiod\s*[1-6]\b", q))
+            return (
+                "absent" in q
+                or "absence" in q
+                or "cover every period" in q
+                or "cover all" in q
+                or ("find substitute" in q and not explicit_period)
+            )
+
+        for step in range(16):
             try:
                 response = safe_llm_call(llm_with_tools, messages)
             except Exception as exc:
@@ -1274,7 +1513,17 @@ def create_timetable_agent(sem_id: str = None,
 
             tool_calls = getattr(response, "tool_calls", []) or []
             if not tool_calls:
-                # Agent is done — no more tool calls
+                remaining = _remaining_absence_periods()
+                if remaining:
+                    messages.append(HumanMessage(content=(
+                        "You stopped before covering every absence period. "
+                        f"Remaining periods for {absence_state['faculty_id']} on "
+                        f"{absence_state['day']}: {', '.join(remaining)}. "
+                        "Continue by calling get_substitute_candidates for the next "
+                        "remaining period, then commit_substitute for that period."
+                    )))
+                    continue
+                # Agent is done - no more tool calls
                 return {
                     "output": getattr(response, "content", str(response)),
                     "reasoning": reasoning,
@@ -1286,8 +1535,92 @@ def create_timetable_agent(sem_id: str = None,
                 args = tc.get("args", {})
                 tool_input = args if args else ""
                 step_index = len(steps) + 1
+                call_signature = (name, _safe_json_dumps(tool_input))
 
-                if name in tool_map:
+                if len(steps) >= 2:
+                    recent_signatures = [
+                        (prev["tool_name"], prev["tool_input"])
+                        for prev in steps[-2:]
+                    ]
+                    if recent_signatures[0] == recent_signatures[1] == call_signature:
+                        return {
+                            "output": (
+                                "Agent stopped after repeating the same tool call "
+                                "three times. Review the collected results and use "
+                                "find_substitute(faculty_id, day) as fallback if needed."
+                            ),
+                            "reasoning": reasoning,
+                            "steps": steps,
+                        }
+
+                if name == "get_faculty_schedule" and _is_absence_query():
+                    result = (
+                        "Skipped get_faculty_schedule during absence handling. "
+                        "Use get_absent_periods(faculty_id, day) first; it returns "
+                        "the exact occupied periods for the absence day."
+                    )
+                    _append_tool_message(tc["id"], name, result)
+                    continue
+
+                if (
+                    name == "get_substitute_candidates"
+                    and _is_absence_query()
+                    and not absence_state["periods"]
+                ):
+                    result = (
+                        "Skipped get_substitute_candidates before get_absent_periods. "
+                        "In an absence flow, first call get_absent_periods(faculty_id, day) "
+                        "and then request candidates only for the returned occupied periods."
+                    )
+                    _append_tool_message(tc["id"], name, result)
+                    continue
+
+                if name == "get_substitute_candidates" and absence_state["periods"]:
+                    requested_period = None
+                    if isinstance(tool_input, dict):
+                        requested_period = _normalize_period_input(tool_input.get("period", ""))
+                    remaining = _remaining_absence_periods()
+                    if requested_period not in absence_state["periods"]:
+                        result = (
+                            "Skipped get_substitute_candidates for a non-occupied "
+                            f"period: {requested_period or tool_input}. Occupied "
+                            f"periods from get_absent_periods: "
+                            f"{', '.join(absence_state['periods'])}. "
+                            f"Remaining periods: {', '.join(remaining)}."
+                        )
+                        _append_tool_message(tc["id"], name, result)
+                        continue
+                    if requested_period in absence_state["covered"]:
+                        result = (
+                            "Skipped get_substitute_candidates for already-covered "
+                            f"period {requested_period}. Remaining periods: "
+                            f"{', '.join(remaining)}."
+                        )
+                        _append_tool_message(tc["id"], name, result)
+                        continue
+
+                commit_periods_before_call = _periods_from_commit_args(tool_input)
+                if (
+                    name == "commit_substitute"
+                    and absence_state["periods"]
+                    and commit_periods_before_call
+                    and all(
+                        period in absence_state["covered"]
+                        for period in commit_periods_before_call
+                    )
+                ):
+                    remaining = _remaining_absence_periods()
+                    result = (
+                        f"Skipped duplicate commit_substitute for already-covered "
+                        f"periods: {', '.join(commit_periods_before_call)}."
+                    )
+                    if remaining:
+                        result += (
+                            f" Remaining periods still uncovered: "
+                            f"{', '.join(remaining)}. Continue to the next period."
+                        )
+                    step_status = "ok"
+                elif name in tool_map:
                     try:
                         result = tool_map[name].invoke(tool_input)
                         step_status = "ok"
@@ -1324,10 +1657,128 @@ def create_timetable_agent(sem_id: str = None,
                     except Exception:
                         pass
 
-                messages.append(ToolMessage(
-                    content=str(result),
-                    tool_call_id=tc["id"],
-                ))
+                if name == "get_absent_periods" and step_status == "ok":
+                    periods = _parse_absent_periods_result(str(result))
+                    if periods and isinstance(tool_input, dict):
+                        absence_state["faculty_id"] = str(
+                            tool_input.get("faculty_id", "")
+                        ).strip().upper()
+                        absence_state["day"] = str(tool_input.get("day", "")).strip()
+                        absence_state["periods"] = periods
+                        absence_state["covered"] = set()
+                        absence_state["commit_messages"] = []
+
+                if (
+                    name == "commit_substitute"
+                    and step_status == "ok"
+                    and "Preview generated" in str(result)
+                ):
+                    if not absence_state["periods"]:
+                        return {
+                            "output": str(result),
+                            "reasoning": reasoning,
+                            "steps": steps,
+                        }
+
+                    commit_periods = _periods_from_commit_args(tool_input)
+                    try:
+                        from src.phase5.sync_manager import (
+                            commit_from_preview,
+                            get_active_preview,
+                        )
+                        meta = get_active_preview(sem_id)
+                        if not meta:
+                            raise RuntimeError("No active preview found to finalize.")
+                        commit_result = commit_from_preview(meta["op_id"], sem_id=sem_id)
+                        commit_message = commit_result.get("message", str(commit_result))
+                        _record_runtime_step(
+                            "commit_from_preview",
+                            {
+                                "op_id": meta["op_id"],
+                                "periods": commit_periods,
+                                "sem_id": sem_id,
+                            },
+                            commit_message,
+                            "ok",
+                        )
+                        absence_state["covered"].update(commit_periods)
+                        absence_state["commit_messages"].append(commit_message)
+                    except Exception as exc:
+                        _record_runtime_step(
+                            "commit_from_preview",
+                            {"periods": commit_periods, "sem_id": sem_id},
+                            f"Commit failed: {exc}",
+                            "error",
+                        )
+                        return {
+                            "output": (
+                                f"{result}\n\nCommit failed before all periods were "
+                                f"covered: {exc}"
+                            ),
+                            "reasoning": reasoning,
+                            "steps": steps,
+                        }
+
+                    remaining = _remaining_absence_periods()
+                    if not remaining:
+                        summary_label = (
+                            f"{absence_state['faculty_id']} absence on "
+                            f"{absence_state['day']}"
+                        )
+                        try:
+                            summary_result = tool_map["generate_session_summary"].invoke(
+                                summary_label
+                            )
+                            _record_runtime_step(
+                                "generate_session_summary",
+                                summary_label,
+                                summary_result,
+                                "ok",
+                            )
+                        except Exception as exc:
+                            summary_result = f"Session summary failed: {exc}"
+                            _record_runtime_step(
+                                "generate_session_summary",
+                                summary_label,
+                                summary_result,
+                                "error",
+                            )
+
+                        covered = ", ".join(absence_state["periods"])
+                        commit_messages = "\n".join(absence_state["commit_messages"])
+                        return {
+                            "output": (
+                                f"Covered every period for "
+                                f"{absence_state['faculty_id']} on "
+                                f"{absence_state['day']}: {covered}.\n\n"
+                                f"{commit_messages}\n\n{summary_result}"
+                            ),
+                            "reasoning": reasoning,
+                            "steps": steps,
+                        }
+
+                    result = (
+                        f"{result}\n\n{commit_message}\n"
+                        f"Covered periods: {', '.join(sorted(absence_state['covered']))}. "
+                        f"Remaining periods: {', '.join(remaining)}. "
+                        "Continue to the next remaining period."
+                    )
+                    _append_tool_message(tc["id"], name, result)
+                    continue
+
+                if (
+                    name == "commit_substitute"
+                    and step_status == "ok"
+                    and absence_state["periods"]
+                ):
+                    remaining = _remaining_absence_periods()
+                    if remaining:
+                        result = (
+                            f"{result}\n\nRemaining periods still uncovered: "
+                            f"{', '.join(remaining)}. Continue to the next period."
+                        )
+
+                _append_tool_message(tc["id"], name, result)
 
         return {
             "output": "Agent reached max steps.",

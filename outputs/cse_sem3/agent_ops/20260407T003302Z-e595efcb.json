@@ -1,0 +1,22 @@
+{
+  "operation_id": "e595efcb",
+  "timestamp_utc": "2026-04-07T00:33:02.468243+00:00",
+  "timestamp_local": "2026-04-07T06:03:02.468282",
+  "action": "substitute",
+  "absent_faculty": "F01",
+  "section_id": "C",
+  "day": "Monday",
+  "period_range": [
+    2,
+    2
+  ],
+  "substitute_faculty": "F17",
+  "reasoning_chain": [
+    "overlay hash verification test"
+  ],
+  "pre_state": "Day,P1,P2,P3,P4,P5,P6\r\nMonday,SE (VN),PROB (RG),OS (AH),CNS (RM),CNS LAB,CNS LAB\r\n",
+  "post_state": "Day,P1,P2,P3,P4,P5,P6\r\nMonday,SE (VN),PROB (RG)\u2192F17,OS (AH),CNS (RM),CNS LAB,CNS LAB\r\n",
+  "commit_result": "SUCCESS",
+  "backup_path": "substitute_overlay:C:\\admin\\3rd year\\sem6\\E3_genai\\timetable_system\\outputs\\cse_sem3\\substitutes\\Monday",
+  "sem_id": "cse_sem3"
+}

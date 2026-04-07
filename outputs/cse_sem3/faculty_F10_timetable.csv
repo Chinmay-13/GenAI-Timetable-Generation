@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
-Monday,DMGT (G),----,----,OS (B),----,----
-Tuesday,DMGT (G),----,----,OS (A),----,----
-Wednesday,OS (A),OS (B),----,DMGT (G),----,----
-Thursday,----,OS (A),----,OS (B),OS LAB (A+B),OS LAB (A+B)
-Friday,OS (B),OS (A),----,DMGT (G),----,----
+Monday,DMGT (G),----,OS (A),OS (B),----,----
+Tuesday,OS (A),----,----,DMGT (G),----,----
+Wednesday,----,DMGT (G),----,OS (B),----,----
+Thursday,DMGT (G),----,OS (A),OS (B),OS LAB (A+B),OS LAB (A+B)
+Friday,OS (B),----,OS (A),----,----,----

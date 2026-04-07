@@ -1,0 +1,22 @@
+{
+  "operation_id": "98447362",
+  "timestamp_utc": "2026-04-07T01:00:34.962777+00:00",
+  "timestamp_local": "2026-04-07T06:30:34.962836",
+  "action": "substitute",
+  "absent_faculty": "F01",
+  "section_id": "B",
+  "day": "Monday",
+  "period_range": [
+    3,
+    3
+  ],
+  "substitute_faculty": "F02",
+  "reasoning_chain": [
+    "F01 absence"
+  ],
+  "pre_state": "Day,P1,P2,P3,P4,P5,P6\r\nMonday,DMGT (SP),CNS (AS),PROB (RG),OS (RJ),CNS LAB,CNS LAB\r\n",
+  "post_state": "Day,P1,P2,P3,P4,P5,P6\r\nMonday,DMGT (SP),CNS (AS),PROB (RG)\u2192F02,OS (RJ),CNS LAB,CNS LAB\r\n",
+  "commit_result": "SUCCESS",
+  "backup_path": "substitute_overlay:C:\\admin\\3rd year\\sem6\\E3_genai\\timetable_system\\outputs\\cse_sem3\\substitutes\\Monday",
+  "sem_id": "cse_sem3"
+}

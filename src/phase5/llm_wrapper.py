@@ -30,6 +30,19 @@ def get_llm(model: str = None):
     )
 
 
+def _rebind_tools_if_needed(candidate_llm, template_llm):
+    """Preserve tool binding when retrying with a fallback model."""
+    kwargs = getattr(template_llm, "kwargs", None)
+    if not isinstance(kwargs, dict):
+        return candidate_llm
+
+    tools = kwargs.get("tools")
+    if not tools:
+        return candidate_llm
+
+    return candidate_llm.bind_tools(tools)
+
+
 def safe_llm_call(llm, messages, base_delay: float = 2.0):
     """
     Calls llm.invoke(messages) with retry and model fallback.
@@ -40,7 +53,10 @@ def safe_llm_call(llm, messages, base_delay: float = 2.0):
     last_error = None
 
     for model_idx, model_name in enumerate(models_to_try):
-        current_llm = llm if model_idx == 0 else get_llm(model_name)
+        if model_idx == 0:
+            current_llm = llm
+        else:
+            current_llm = _rebind_tools_if_needed(get_llm(model_name), llm)
         label = f"Groq/{model_name}"
 
         for attempt in range(3):

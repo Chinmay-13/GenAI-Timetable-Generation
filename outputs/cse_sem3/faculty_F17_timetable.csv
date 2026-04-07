@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
 Monday,----,----,----,----,----,----
-Tuesday,PROB (J),PROB (K),DMGT (D),PROB (L),----,----
-Wednesday,PROB (K),DMGT (D),PROB (J),PROB (L),----,----
-Thursday,PROB (J),PROB (L),PROB (K),DMGT (D),----,----
-Friday,DMGT (D),PROB (K),PROB (J),PROB (L),----,----
+Tuesday,DMGT (D),PROB (J),PROB (K),PROB (L),----,----
+Wednesday,PROB (L),PROB (J),DMGT (D),PROB (K),----,----
+Thursday,PROB (J),DMGT (D),PROB (K),PROB (L),----,----
+Friday,PROB (J),PROB (K),PROB (L),DMGT (D),----,----

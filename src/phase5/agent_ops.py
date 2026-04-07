@@ -8,6 +8,7 @@ tree (``outputs/<sem_id>/agent_ops/``).  When ``sem_id`` is None the legacy
 flat ``outputs/agent_ops/`` is used.
 """
 import json
+import csv
 import shutil
 import uuid
 from datetime import datetime, timezone
@@ -24,6 +25,12 @@ from config import resolve_output_path, get_sem_paths
 # ── Legacy fallback paths (only used when sem_id is None) ─────────────────────
 _LEGACY_AGENT_OPS_DIR = PROJECT_ROOT / "outputs" / "agent_ops"
 _LEGACY_BACKUPS_DIR   = _LEGACY_AGENT_OPS_DIR / "backups"
+_LEGACY_SUBSTITUTES_DIR = PROJECT_ROOT / "outputs" / "substitutes"
+
+# Backward-compatible exports used by sync_manager.py.
+AGENT_OPS_DIR = _LEGACY_AGENT_OPS_DIR
+BACKUPS_DIR = _LEGACY_BACKUPS_DIR
+SUBSTITUTES_DIR = _LEGACY_SUBSTITUTES_DIR
 
 
 def _ops_dir(sem_id: str = None) -> Path:
@@ -48,6 +55,74 @@ def _output_dir(sem_id: str = None) -> Path:
 def _ensure_dirs(sem_id: str = None):
     _ops_dir(sem_id).mkdir(parents=True, exist_ok=True)
     _backups_dir(sem_id).mkdir(parents=True, exist_ok=True)
+
+
+def _clear_overlay_csv(path: Path, day: str, periods: list[str]) -> list[str]:
+    if not path.exists():
+        return []
+
+    with open(path, "r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+        fieldnames = reader.fieldnames or ["Day", "P1", "P2", "P3", "P4", "P5", "P6"]
+
+    cleared: list[str] = []
+    for row in rows:
+        if str(row.get("Day", "")).strip() != day:
+            continue
+        for period in periods:
+            if row.get(period, "----") not in ("----", "", None):
+                row[period] = "----"
+                cleared.append(f"{path.name}:{period}")
+
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    return cleared
+
+
+def _rollback_substitute_overlay(record: dict) -> str:
+    backup_path = str(record.get("backup_path", ""))
+    day_dir = Path(backup_path.split(":", 1)[1])
+    day = str(record.get("day", "")).strip()
+    absent = str(record.get("absent_faculty", "")).upper()
+    substitute = str(record.get("substitute_faculty", "")).upper()
+    p_start, p_end = record.get("period_range", [0, -1])
+    periods = [f"P{p}" for p in range(int(p_start), int(p_end) + 1)]
+    section = str(record.get("section_id", "")).upper()
+
+    cleared = []
+    cleared.extend(_clear_overlay_csv(day_dir / f"faculty_{absent}_substitute.csv", day, periods))
+    cleared.extend(_clear_overlay_csv(day_dir / f"faculty_{substitute}_substitute.csv", day, periods))
+
+    summary_path = day_dir / "summary.json"
+    removed = 0
+    if summary_path.exists():
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+        records = payload.get("substitutions", [])
+        keep = []
+        for item in records:
+            matches = (
+                item.get("absent_faculty") == absent
+                and item.get("substitute_faculty") == substitute
+                and item.get("day") == day
+                and item.get("period") in periods
+                and item.get("section") == section
+            )
+            if matches:
+                removed += 1
+            else:
+                keep.append(item)
+        payload["substitutions"] = keep
+        summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    return (
+        f"Rolled back substitute overlay '{record.get('operation_id')}'. "
+        f"Cleared: {', '.join(cleared) if cleared else 'no overlay cells'}. "
+        f"Removed {removed} summary entries. Original timetable was unchanged."
+    )
 
 
 def backup_timetable(section_id: str, sem_id: str = None) -> Path:
@@ -126,7 +201,11 @@ def rollback_operation(operation_id: str, sem_id: str = None) -> str:
         return f"Operation {operation_id} not found."
 
     record = json.loads(files[0].read_text(encoding="utf-8"))
-    backup_path = Path(record["backup_path"])
+    backup_path_raw = str(record.get("backup_path", ""))
+    if backup_path_raw.startswith("substitute_overlay:"):
+        return _rollback_substitute_overlay(record)
+
+    backup_path = Path(backup_path_raw)
     section = record["section_id"]
 
     out_dir = _output_dir(sem_id)

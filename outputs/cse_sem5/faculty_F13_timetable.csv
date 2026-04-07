@@ -1,6 +1,6 @@
 Day,P1,P2,P3,P4,P5,P6
 Monday,DBMS (G),DBMS (H),----,----,----,----
-Tuesday,----,----,DBMS (G),DBMS (H),----,----
-Wednesday,----,DBMS (G),DBMS (H),----,----,----
+Tuesday,----,----,DBMS (H),DBMS (G),----,----
+Wednesday,DBMS (G),----,DBMS (H),DBMS (G),----,----
 Thursday,----,----,----,----,----,----
-Friday,DBMS (H),DBMS (G),----,----,DBMS LAB (E+K),DBMS LAB (E+K)
+Friday,----,DBMS (H),----,----,DBMS LAB (E+K),DBMS LAB (E+K)

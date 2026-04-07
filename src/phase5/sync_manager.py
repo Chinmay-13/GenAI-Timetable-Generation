@@ -1,8 +1,10 @@
 """
 sync_manager.py — Centralized write-back for all schedule changes.
 
-Every commit (substitute or swap) must flow through
-``commit_schedule_change(change_dict)``.  The function atomically:
+Every canonical schedule write (for example a swap) must flow through
+``commit_schedule_change(change_dict)``.  Substitute commits are stored as
+temporary overlays under ``outputs/<sem_id>/substitutes/<day>/`` so the
+original weekly timetable remains unchanged.
 
   1. Backs up the section CSV + both faculty CSVs + summary_report.txt
   2. Patches the section CSV
@@ -20,7 +22,9 @@ Usage:
 from __future__ import annotations
 
 import logging
+import json
 import os
+import re
 import shutil
 import tempfile
 from datetime import datetime, timezone
@@ -38,7 +42,7 @@ import config
 from config import DAYS, PERIODS, LAB_PERIODS, SHORT_NAMES, MAX_HOURS, SECTIONS
 from config import OUTPUT_DIR, DATA_DIR, resolve_output_path, get_sem_paths
 from src.phase5.agent_ops import (
-    BACKUPS_DIR, AGENT_OPS_DIR,
+    BACKUPS_DIR, AGENT_OPS_DIR, SUBSTITUTES_DIR,
     log_operation, list_operations,
 )
 
@@ -102,6 +106,12 @@ def _summary_path(out: Path = None) -> Path:
     return base / "summary_report.txt"
 
 
+def _substitutes_root(sem_id: str = None) -> Path:
+    if sem_id:
+        return get_sem_paths(sem_id).output_dir / "substitutes"
+    return SUBSTITUTES_DIR
+
+
 # ── backup helpers ────────────────────────────────────────────────────────────
 
 def _make_backup_dir(op_ts: str) -> Path:
@@ -158,6 +168,252 @@ def _load_faculty_meta(data_dir: Path = None) -> Dict[str, Dict]:
     return meta
 
 
+def _extract_sections_from_faculty_cell(cell: object) -> List[str]:
+    text = str(cell).strip()
+    if not text or text in {"----", "", "nan"}:
+        return []
+
+    groups = re.findall(r"\(([^()]+)\)", text)
+    for token in reversed(groups):
+        sections = [part.strip().upper() for part in token.split("+") if part.strip()]
+        if sections and all(section in SECTIONS for section in sections):
+            return sections
+    return []
+
+
+def _validate_substitute_target(
+    *,
+    section: str,
+    day: str,
+    period_start: int,
+    period_end: int,
+    original_faculty: str,
+    out: Path,
+) -> None:
+    """Reject previews that do not match the absent faculty's actual slot."""
+    fac_path = _faculty_csv_path(original_faculty, out)
+    if not fac_path.exists():
+        raise ValueError(
+            f"Faculty timetable not found for {original_faculty}. "
+            "Cannot validate substitute target."
+        )
+
+    df = pd.read_csv(fac_path)
+    day_df = df[df["Day"].astype(str).str.strip().str.lower() == day.strip().lower()]
+    if day_df.empty:
+        raise ValueError(
+            f"{original_faculty} has no timetable row for {day}."
+        )
+
+    row = day_df.iloc[0]
+    missing_periods: List[str] = []
+    multi_section_periods: List[str] = []
+    mismatched_periods: List[str] = []
+
+    for p in range(period_start, period_end + 1):
+        col = f"P{p}"
+        sections = _extract_sections_from_faculty_cell(row.get(col, "----"))
+        if not sections:
+            missing_periods.append(col)
+            continue
+        if len(sections) > 1:
+            multi_section_periods.append(f"{col} ({'+'.join(sections)})")
+            continue
+        if sections[0] != section.upper():
+            mismatched_periods.append(f"{col}={sections[0]}")
+
+    if missing_periods:
+        raise ValueError(
+            f"{original_faculty} is not scheduled on {day} "
+            f"{', '.join(missing_periods)}."
+        )
+
+    if multi_section_periods:
+        raise ValueError(
+            "Current substitute preview supports only single-section slots. "
+            f"Multi-section periods found: {', '.join(multi_section_periods)}."
+        )
+
+    if mismatched_periods:
+        raise ValueError(
+            f"Section {section} does not match {original_faculty}'s actual slot "
+            f"on {day}: {', '.join(mismatched_periods)}."
+        )
+
+
+def _extract_course_from_cell(cell: object) -> str:
+    text = str(cell).strip()
+    if not text or text in {"----", "", "nan"}:
+        return ""
+    base = text.split("→")[0].strip()
+    return base.split("(", 1)[0].strip()
+
+
+def _append_substitute_summary(day_dir: Path, sem_id: str, day: str, records: List[Dict]) -> tuple[Path, List[Dict]]:
+    summary_path = day_dir / "summary.json"
+    if summary_path.exists():
+        try:
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
+        except Exception:
+            payload = {}
+    else:
+        payload = {}
+
+    payload.setdefault("sem_id", sem_id or "legacy")
+    payload.setdefault("day", day)
+    existing = payload.setdefault("substitutions", [])
+
+    existing_keys = {
+        (
+            item.get("absent_faculty"),
+            item.get("substitute_faculty"),
+            item.get("day"),
+            item.get("period"),
+            item.get("section"),
+        )
+        for item in existing
+    }
+    appended_records: List[Dict] = []
+    for record in records:
+        key = (
+            record.get("absent_faculty"),
+            record.get("substitute_faculty"),
+            record.get("day"),
+            record.get("period"),
+            record.get("section"),
+        )
+        if key not in existing_keys:
+            existing.append(record)
+            existing_keys.add(key)
+            appended_records.append(record)
+
+    _atomic_write_text(summary_path, json.dumps(payload, indent=2))
+    return summary_path, appended_records
+
+
+def _period_number(period: str) -> int:
+    text = str(period).strip().upper()
+    return int(text[1:]) if text.startswith("P") and text[1:].isdigit() else 999
+
+
+def _faculty_notice_name(faculty_id: str, faculty_meta: Dict[str, Dict]) -> str:
+    fid = str(faculty_id).strip().upper()
+    return faculty_meta.get(fid, {}).get("name", fid)
+
+
+def _append_substitute_notice(
+    day_dir: Path,
+    sem_id: str,
+    day: str,
+    records: List[Dict],
+) -> Path:
+    notice_path = day_dir / "substitute_notice.txt"
+    if not records:
+        return notice_path
+
+    data_dir = get_sem_paths(sem_id).data_dir if sem_id else DATA_DIR
+    faculty_meta = _load_faculty_meta(data_dir)
+
+    grouped: Dict[str, List[Dict]] = {}
+    for record in records:
+        grouped.setdefault(record["absent_faculty"], []).append(record)
+
+    lines: List[str] = []
+    if not notice_path.exists():
+        lines.extend([
+            f"Substitute Notice — {day}",
+            f"Semester: {sem_id or 'legacy'}",
+            "",
+        ])
+    elif notice_path.read_text(encoding="utf-8").strip():
+        lines.append("")
+
+    for absent_faculty in sorted(grouped):
+        for record in sorted(grouped[absent_faculty], key=lambda item: _period_number(item["period"])):
+            sub_faculty = record["substitute_faculty"]
+            sub_name = _faculty_notice_name(sub_faculty, faculty_meta)
+            absent_name = _faculty_notice_name(record["absent_faculty"], faculty_meta)
+            lines.append(
+                f"{record['period']} → {sub_faculty} ({sub_name}) covers "
+                f"{record['course']} for Section {record['section']}  "
+                f"[replacing {record['absent_faculty']} - {absent_name}]"
+            )
+
+    with open(notice_path, "a", encoding="utf-8", newline="") as fh:
+        fh.write("\n".join(lines).rstrip() + "\n")
+    return notice_path
+
+
+def _write_substitute_commit_overlay(change_dict: dict, sem_id: str = None) -> dict:
+    out = get_sem_paths(sem_id).output_dir if sem_id else OUTPUT_DIR
+
+    section = str(change_dict["section"]).upper()
+    day = str(change_dict["day"]).strip()
+    p_start = int(change_dict["period_start"])
+    p_end = int(change_dict["period_end"])
+    orig_fac = str(change_dict["original_faculty"]).upper()
+    new_fac = str(change_dict["new_faculty"]).upper()
+
+    _validate_substitute_target(
+        section=section,
+        day=day,
+        period_start=p_start,
+        period_end=p_end,
+        original_faculty=orig_fac,
+        out=out,
+    )
+
+    sec_path = _section_csv_path(section, out)
+    if not sec_path.exists():
+        sec_path = out / f"section_{section}_timetable.csv"
+    if not sec_path.exists():
+        raise ValueError(f"Section CSV not found for section {section}.")
+
+    section_df = pd.read_csv(sec_path)
+    row = section_df[
+        section_df["Day"].astype(str).str.strip().str.lower() == day.lower()
+    ]
+    if row.empty:
+        raise ValueError(f"Day '{day}' not found in section {section} timetable.")
+    row = row.iloc[0]
+
+    day_dir = _substitutes_root(sem_id) / day
+    day_dir.mkdir(parents=True, exist_ok=True)
+
+    summary_records = []
+    for p in range(p_start, p_end + 1):
+        period = f"P{p}"
+        course = _extract_course_from_cell(row.get(period, "----"))
+        if not course:
+            raise ValueError(
+                f"Cannot write substitute notice: no course found for "
+                f"section {section} {day} {period}."
+            )
+
+        summary_records.append({
+            "absent_faculty": orig_fac,
+            "substitute_faculty": new_fac,
+            "day": day,
+            "period": period,
+            "section": section,
+            "course": course,
+        })
+
+    summary_path, appended_records = _append_substitute_summary(
+        day_dir,
+        sem_id,
+        day,
+        summary_records,
+    )
+    notice_path = _append_substitute_notice(day_dir, sem_id, day, appended_records)
+    return {
+        "day_dir": day_dir,
+        "notice_path": notice_path,
+        "summary_path": summary_path,
+        "records": summary_records,
+    }
+
+
 def rebuild_faculty_csv(faculty_id: str, sem_id: str = None) -> Path:
     """
     Reconstruct a faculty timetable CSV by scanning every section CSV on disk.
@@ -165,8 +421,10 @@ def rebuild_faculty_csv(faculty_id: str, sem_id: str = None) -> Path:
     Returns the path written.
     """
     out = get_sem_paths(sem_id).output_dir if sem_id else OUTPUT_DIR
+    data_dir = get_sem_paths(sem_id).data_dir if sem_id else DATA_DIR
     fid = faculty_id.strip().upper()
     period_cols = [f"P{p}" for p in PERIODS]
+    faculty_meta = _load_faculty_meta(data_dir)
 
     # Initialise empty grid
     grid: Dict[str, Dict[str, str]] = {
@@ -193,7 +451,7 @@ def rebuild_faculty_csv(faculty_id: str, sem_id: str = None) -> Path:
             for p in PERIODS:
                 col = f"P{p}"
                 cell = str(row.get(col, "----")).strip()
-                if _cell_belongs_to_faculty(cell, fid):
+                if _cell_belongs_to_faculty(cell, fid, faculty_meta=faculty_meta):
                     base = cell.split("→")[0].strip()
                     grid[day][col] = f"{base} ({section})"
 
@@ -211,7 +469,12 @@ def rebuild_faculty_csv(faculty_id: str, sem_id: str = None) -> Path:
     return out_path
 
 
-def _cell_belongs_to_faculty(cell: str, faculty_id: str) -> bool:
+def _cell_belongs_to_faculty(
+    cell: str,
+    faculty_id: str,
+    faculty_meta: Optional[Dict[str, Dict]] = None,
+    data_dir: Path = None,
+) -> bool:
     """
     Heuristic: a section CSV cell belongs to faculty_id when:
       - The cell contains '→<faculty_id>' (substitution annotation), OR
@@ -228,7 +491,7 @@ def _cell_belongs_to_faculty(cell: str, faculty_id: str) -> bool:
         return True
 
     # Check initials inside parentheses: "DDCO (ABC)"
-    meta = _load_faculty_meta()
+    meta = faculty_meta if faculty_meta is not None else _load_faculty_meta(data_dir)
     if fid_upper in meta:
         initials = meta[fid_upper]["initials"]
         # Match "(INITIALS)" but not "(INITIALS)→..." for the original faculty
@@ -405,6 +668,75 @@ def commit_schedule_change(change_dict: dict, sem_id: str = None) -> dict:
             "Run run_all.py to generate outputs first."
         )
 
+    _validate_substitute_target(
+        section=section,
+        day=day,
+        period_start=p_start,
+        period_end=p_end,
+        original_faculty=orig_fac,
+        out=out,
+    )
+
+    if change_type.lower() == "substitute":
+        pre_state = ""
+        post_state = ""
+        try:
+            section_df = pd.read_csv(sec_path)
+            row = section_df[
+                section_df["Day"].astype(str).str.strip().str.lower() == day.lower()
+            ]
+            if not row.empty:
+                pre_state = row.to_csv(index=False)
+        except Exception:
+            pre_state = ""
+
+        try:
+            overlay_result = _write_substitute_commit_overlay(change_dict, sem_id=sem_id)
+        except Exception as exc:
+            raise RuntimeError(
+                "commit_schedule_change failed. Canonical timetables were unchanged. "
+                f"Cause: {exc}"
+            ) from exc
+
+        try:
+            log_path = log_operation(
+                action=change_type,
+                absent_faculty=orig_fac,
+                section_id=section,
+                day=day,
+                period_range=(p_start, p_end),
+                substitute_faculty=new_fac,
+                reasoning_chain=[reason] if reason else ["no reason provided"],
+                pre_state=pre_state,
+                post_state=post_state,
+                commit_result="SUCCESS",
+                backup_path=f"substitute_overlay:{overlay_result['day_dir']}",
+                sem_id=sem_id,
+            )
+        except Exception as exc:
+            logger.error("Failed to log operation (non-fatal): %s", exc)
+            log_path = None
+
+        msg = (
+            f"Committed substitute: {new_fac} covers section {section} "
+            f"on {day} P{p_start}-P{p_end} (replacing {orig_fac}). "
+            f"Substitute notice saved to substitutes/{day}/substitute_notice.txt. "
+            "Original timetable unchanged."
+        )
+        logger.info(msg)
+        return {
+            "success": True,
+            "message": msg,
+            "log_path": str(log_path) if log_path else None,
+            "rag_refreshed": False,
+            "backup_dir": None,
+            "substitute_dir": str(overlay_result["day_dir"]),
+            "notice_path": str(overlay_result["notice_path"]),
+            "summary_path": str(overlay_result["summary_path"]),
+            "day": day,
+            "canonical_unchanged": True,
+        }
+
     # ── 1. Backup ─────────────────────────────────────────────────────────────
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     # Backup dir lives inside the semester-aware output tree
@@ -492,6 +824,7 @@ def commit_schedule_change(change_dict: dict, sem_id: str = None) -> dict:
             post_state=post_state,
             commit_result="SUCCESS",
             backup_path=str(backup_dir),
+            sem_id=sem_id,
         )
     except Exception as exc:
         # Logging failure is non-fatal — don't roll back the actual changes
@@ -586,6 +919,8 @@ def _build_preview_faculty_csv(
     """
     fid = faculty_id.strip().upper()
     period_cols = [f"P{p}" for p in PERIODS]
+    data_dir = get_sem_paths(sem_id).data_dir if sem_id else DATA_DIR
+    faculty_meta = _load_faculty_meta(data_dir)
 
     grid: Dict[str, Dict[str, str]] = {
         day: {f"P{p}": "----" for p in PERIODS}
@@ -613,7 +948,7 @@ def _build_preview_faculty_csv(
             for p in PERIODS:
                 col = f"P{p}"
                 cell = str(row.get(col, "----")).strip()
-                if _cell_belongs_to_faculty(cell, fid):
+                if _cell_belongs_to_faculty(cell, fid, faculty_meta=faculty_meta):
                     base = cell.split("→")[0].strip()
                     grid[day][col] = f"{base} ({section})"
 
@@ -668,6 +1003,15 @@ def preview_schedule_change(change_dict: dict, sem_id: str = None) -> dict:
             f"Section CSV not found for section {section}. "
             "Run run_all.py to generate outputs first."
         )
+
+    _validate_substitute_target(
+        section=section,
+        day=day,
+        period_start=p_start,
+        period_end=p_end,
+        original_faculty=orig_fac,
+        out=out,
+    )
 
     import uuid as _uuid
     import json as _json
@@ -727,24 +1071,24 @@ def preview_schedule_change(change_dict: dict, sem_id: str = None) -> dict:
         "diff_summary": "\n".join(diff_lines),
         "message": (
             f"Preview generated (op_id={op_id}). No live files changed. "
-            "Ask the user to confirm, then call apply_pending_preview."
+            "Ask the user to confirm; commit will append a substitute notice "
+            f"under substitutes/{day}/substitute_notice.txt."
         ),
     }
 
 
 def commit_from_preview(op_id: str, sem_id: str = None) -> dict:
     """
-    Promote temp-folder preview files to live outputs and finalise.
+    Commit a pending preview as a substitute notice.
 
     Steps:
-      1. Backup live files.
-      2. Copy preview files → live output dir atomically.
-      3. Rebuild summary_report.txt and RAG index.
+      1. Read the pending preview metadata.
+      2. Append substitutes/<day>/substitute_notice.txt.
+      3. Append substitutes/<day>/summary.json.
       4. Log the operation.
       5. Remove the temp folder.
 
-    Returns the same dict shape as commit_schedule_change.
-    Raises RuntimeError (with full rollback) on any write failure.
+    Canonical section/faculty timetable CSVs are never modified.
     """
     import json as _json
     temp_dir = _temp_root(sem_id) / op_id
@@ -769,42 +1113,13 @@ def commit_from_preview(op_id: str, sem_id: str = None) -> dict:
     change_type = str(change_dict["change_type"])
     reason      = str(change_dict.get("reason", ""))
 
-    # ── Backup live files first ───────────────────────────────────────────────
-    ts         = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    backup_dir = out / "agent_ops" / "backups" / ts
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    backed_up: List[str] = []
-
-    def _bk(path: Path) -> None:
-        dst = _backup_file(path, backup_dir)
-        if dst:
-            backed_up.append(path.name)
-
-    _bk(_section_csv_path(section, out))
-    _bk(_faculty_csv_path(orig_fac, out))
-    _bk(_faculty_csv_path(new_fac,  out))
-    _bk(_summary_path(out))
-    logger.info("commit_from_preview: backup at %s (%s)", backup_dir, backed_up)
-
     try:
-        # ── Copy preview files → live outputs ─────────────────────────────────
-        for preview_file in temp_dir.iterdir():
-            if preview_file.name.startswith("."):
-                continue  # skip .pending marker
-            dst = out / preview_file.name
-            shutil.copy2(preview_file, dst)
-            logger.info("Promoted preview file: %s", preview_file.name)
-
-        rebuild_summary_report(sem_id)
-
+        overlay_result = _write_substitute_commit_overlay(change_dict, sem_id=sem_id)
     except Exception as exc:
-        _restore_backup(backup_dir, backed_up, out)
         raise RuntimeError(
-            f"commit_from_preview failed — rolled back. Cause: {exc}"
+            f"commit_from_preview failed. Canonical timetables were unchanged. "
+            f"Cause: {exc}"
         ) from exc
-
-    # ── RAG re-index (best-effort) ────────────────────────────────────────────
-    rag_ok = _try_rebuild_rag(sem_id)
 
     # ── Log operation ─────────────────────────────────────────────────────────
     try:
@@ -819,7 +1134,8 @@ def commit_from_preview(op_id: str, sem_id: str = None) -> dict:
             pre_state=pre_state,
             post_state=post_state,
             commit_result="SUCCESS",
-            backup_path=str(backup_dir),
+            backup_path=f"substitute_overlay:{overlay_result['day_dir']}",
+            sem_id=sem_id,
         )
     except Exception as exc:
         logger.error("Failed to log operation (non-fatal): %s", exc)
@@ -835,16 +1151,21 @@ def commit_from_preview(op_id: str, sem_id: str = None) -> dict:
     msg = (
         f"Committed {change_type}: {new_fac} covers section {section} "
         f"on {day} P{p_start}-P{p_end} (replacing {orig_fac}). "
-        f"Faculty CSVs rebuilt. Summary updated. "
-        f"RAG {'refreshed' if rag_ok else 'not refreshed (deps missing)'}."
+        f"Substitute notice saved to substitutes/{day}/substitute_notice.txt. "
+        "Original timetable unchanged."
     )
     logger.info(msg)
     return {
         "success":       True,
         "message":       msg,
         "log_path":      str(log_path) if log_path else None,
-        "rag_refreshed": rag_ok,
-        "backup_dir":    str(backup_dir),
+        "rag_refreshed": False,
+        "backup_dir":    None,
+        "substitute_dir": str(overlay_result["day_dir"]),
+        "notice_path": str(overlay_result["notice_path"]),
+        "summary_path": str(overlay_result["summary_path"]),
+        "day": day,
+        "canonical_unchanged": True,
     }
 
 

@@ -1,0 +1,22 @@
+{
+  "operation_id": "80b342f5",
+  "timestamp_utc": "2026-04-06T19:14:07.828134+00:00",
+  "timestamp_local": "2026-04-07T00:44:07.828186",
+  "action": "substitute",
+  "absent_faculty": "F01",
+  "section_id": "A",
+  "day": "Tuesday",
+  "period_range": [
+    1,
+    1
+  ],
+  "substitute_faculty": "F05",
+  "reasoning_chain": [
+    "Substitute for F01"
+  ],
+  "pre_state": "Day,P1,P2,P3,P4,P5,P6\r\nTuesday,DMGT (AS),PROB (RG),SE (VN),OS (RJ),----,----\r\n",
+  "post_state": "Day,P1,P2,P3,P4,P5,P6\r\nTuesday,DMGT (AS)\u2192F05,PROB (RG),SE (VN),OS (RJ),----,----\r\n",
+  "commit_result": "SUCCESS",
+  "backup_path": "C:\\admin\\3rd year\\sem6\\E3_genai\\timetable_system\\outputs\\cse_sem3\\agent_ops\\backups\\20260406T191356Z",
+  "sem_id": "legacy"
+}
