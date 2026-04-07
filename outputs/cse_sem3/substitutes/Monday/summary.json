@@ -4,30 +4,6 @@
   "substitutions": [
     {
       "absent_faculty": "F01",
-      "substitute_faculty": "F02",
-      "day": "Monday",
-      "period": "P2",
-      "section": "A",
-      "course": "PROB"
-    },
-    {
-      "absent_faculty": "F01",
-      "substitute_faculty": "F02",
-      "day": "Monday",
-      "period": "P3",
-      "section": "B",
-      "course": "PROB"
-    },
-    {
-      "absent_faculty": "F01",
-      "substitute_faculty": "F02",
-      "day": "Monday",
-      "period": "P4",
-      "section": "C",
-      "course": "PROB"
-    },
-    {
-      "absent_faculty": "F01",
       "substitute_faculty": "F16",
       "day": "Monday",
       "period": "P2",

@@ -1,12 +1,6 @@
 Substitute Notice — Monday
 Semester: cse_sem3
 
-P2 → F02 (Sunita Rao) covers PROB for Section A  [replacing F01 - Ramesh Gupta]
-
-P3 → F02 (Sunita Rao) covers PROB for Section B  [replacing F01 - Ramesh Gupta]
-
-P4 → F02 (Sunita Rao) covers PROB for Section C  [replacing F01 - Ramesh Gupta]
-
 P2 → F16 (Suma Prasad) covers PROB for Section A  [replacing F01 - Ramesh Gupta]
 
 P3 → F17 (Dinesh Gowda) covers PROB for Section B  [replacing F01 - Ramesh Gupta]
