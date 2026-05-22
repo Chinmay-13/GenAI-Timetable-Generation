@@ -265,3 +265,9 @@ timetable_system/
 │       └── sync_manager.py  Atomic write-back on changes
 └── tests/                   pytest test suite
 ```
+
+## Upcoming Features / Improvements
+
+- [ ] Avoid back-to-back classes for faculty
+- [ ] Debug and improve the "swap within class” feature
+- [ ] Additional soft constraint : lecturers get a day off
